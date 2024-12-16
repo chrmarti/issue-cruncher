@@ -75,14 +75,14 @@
 			},
 			{
 				"id": "chat-tools-sample.catTools",
-				"fullName": "Cat (Tools)",
-				"name": "catTools",
-				"description": "I use tools, implemented using @vscode/chat-extension-utils, and am also a cat",
+				"fullName": "Cruncher",
+				"name": "cruncher",
+				"description": "I crunch GitHub issues, and am also a cat",
 				"isSticky": true,
 				"commands": [
 					{
-						"name": "all",
-						"description": "Use all registered tools. By default, only this extension's tools are used."
+						"name": "next",
+						"description": "Crunch the next issue."
 					}
 				]
 			}
@@ -160,14 +160,16 @@
 			}
 		]
 	},
-	"main": "./out/extension.js",
+	"main": "./dist/extension.js",
 	"scripts": {
-		"vscode:prepublish": "npm run compile",
+		"vscode:prepublish": "npm run build",
 		"compile": "tsc -p ./",
 		"lint": "eslint",
-		"watch": "tsc -watch -p ./"
+		"watch": "node esbuild.js --watch",
+		"build": "node esbuild.js"
 	},
 	"dependencies": {
+		"@octokit/rest": "^21.0.2",
 		"@vscode/chat-extension-utils": "^0.0.0-alpha.1",
 		"@vscode/prompt-tsx": "^0.3.0-alpha.12"
 	},
@@ -178,6 +180,7 @@
 		"@types/vscode": "^1.95.0",
 		"eslint": "^9.13.0",
 		"typescript": "^5.7.2",
-		"typescript-eslint": "^8.16.0"
+		"typescript-eslint": "^8.16.0",
+		"esbuild": "^0.24.0"
 	}
 }
