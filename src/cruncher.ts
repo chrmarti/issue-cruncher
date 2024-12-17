@@ -29,10 +29,6 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     stream.markdown(`Summarizing issue: [#${issue.number}](${issue.html_url}) - ${issue.title}\n\n`);
 
-                    const comments = commentsResponse.data.map(comment => `## Comment by @${comment.user?.login}\n\n${comment.body}`).join('\n\n');
-                    const fullIssueText = `# Issue ${issue.html_url} by @${issue.user?.login}: ${issue.title}\n\n${issue.body}\n\n${comments}`;
-                    const prompt = `Task: Summarize the following GitHub issue and its comments in a few sentences. Add then one of the labels 'bug', 'feature-request', 'question', 'upstream' or 'info-needed' to the issue.\n\n${fullIssueText}`;
-
                     const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_addLabelToIssue');
 
                     const options: vscode.LanguageModelChatRequestOptions = {
@@ -43,7 +39,8 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     const result = await renderPrompt(
                         CruncherPrompt,
                         {
-                            prompt,
+                            issue,
+                            comments: commentsResponse.data,
                             context: chatContext,
                             request,
                         },
@@ -69,7 +66,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     }
 
                     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-                    if (workspaceFolder) {
+                    if (summary.trim() && workspaceFolder) {
                         const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `devcontainers-cli-${issue.number}.json`);
                         const fileContent = JSON.stringify({ summary, issue }, null, 2);
                         await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
