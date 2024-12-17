@@ -5,11 +5,13 @@ import { renderPrompt } from '@vscode/prompt-tsx';
 import { CruncherPrompt } from './cruncherPrompt';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
-    const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, token: vscode.CancellationToken) => {
+    const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
         if (request.command === 'next') {
             stream.progress('Fetching the most recent open issue...');
             try {
-                const octokit = new Octokit();
+                const octokit = new Octokit({
+                    auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+                });
                 const response = await octokit.rest.search.issuesAndPullRequests({
                     q: 'repo:devcontainers/cli is:issue is:open -label:bug -label:feature-request -label:question -label:info-needed -label:under-discussion -label:debt -label:upstream -label:polish',
                     sort: 'created',
@@ -28,13 +30,14 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     stream.markdown(`Summarizing issue: [#${issue.number}](${issue.html_url}) - ${issue.title}\n\n`);
 
                     const comments = commentsResponse.data.map(comment => `## Comment by @${comment.user?.login}\n\n${comment.body}`).join('\n\n');
-                    const fullIssueText = `# Issue ${issue.html_url}: ${issue.title}\n\n${issue.body}\n\n${comments}`;
-                    const prompt = `Summarize the following GitHub issue and its comments in a few sentences and suggest one of the types 'bug', 'feature-request', 'question', 'upstream' or 'info-needed':\n\n${fullIssueText}`;
+                    const fullIssueText = `# Issue ${issue.html_url} by @${issue.user?.login}: ${issue.title}\n\n${issue.body}\n\n${comments}`;
+                    const prompt = `Task: Summarize the following GitHub issue and its comments in a few sentences. Add then one of the labels 'bug', 'feature-request', 'question', 'upstream' or 'info-needed' to the issue.\n\n${fullIssueText}`;
 
-                    // const tools = vscode.lm.tools.filter(tool => tool.tags.includes('chat-tools-sample'));
+                    const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_addLabelToIssue');
 
                     const options: vscode.LanguageModelChatRequestOptions = {
                         justification: 'To make a request to @cruncher',
+                        tools,
                     };
                     const model = request.model;
                     const result = await renderPrompt(
@@ -51,7 +54,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                             stream.reference(ref.anchor);
                         }
                     });
-                    const response = await model.sendRequest(result.messages, options, token);
+                    const response = await model.sendRequest(result.messages, options, cancellationToken);
 
                     // Stream text output and collect tool calls from the response
                     const toolCalls: vscode.LanguageModelToolCallPart[] = [];
@@ -70,6 +73,10 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `devcontainers-cli-${issue.number}.json`);
                         const fileContent = JSON.stringify({ summary, issue }, null, 2);
                         await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
+                    }
+
+                    for (const toolCall of toolCalls) {
+                        await vscode.lm.invokeTool(toolCall.name, { input: toolCall.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
                     }
                 } else {
                     stream.markdown('No open issues found.');
@@ -94,7 +101,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                 },
                 tools
             },
-            token);
+            cancellationToken);
 
         return await libResult.result;
     };

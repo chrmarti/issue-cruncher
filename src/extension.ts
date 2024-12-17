@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { registerChatLibChatParticipant } from './chatUtilsSample';
+import { registerChatLibChatParticipant } from './cruncher';
 import { registerSimpleParticipant } from './simple';
 import { registerToolUserChatParticipant } from './toolParticipant';
 import { registerChatTools } from './tools';

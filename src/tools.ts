@@ -1,9 +1,11 @@
+import { Octokit } from '@octokit/rest';
 import * as vscode from 'vscode';
 
 export function registerChatTools(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_tabCount', new TabCountTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_findFiles', new FindFilesTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_runInTerminal', new RunInTerminalTool()));
+	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_addLabelToIssue', new AddLabelToIssueTool()));
 }
 
 interface ITabCountParameters {
@@ -154,6 +156,52 @@ export class RunInTerminalTool
 
 		return {
 			invocationMessage: `Running command in terminal`,
+			confirmationMessages,
+		};
+	}
+}
+
+interface IAddLabelParameters {
+	owner: string;
+	repo: string;
+	issue_number: number;
+	label: string;
+}
+
+class AddLabelToIssueTool implements vscode.LanguageModelTool<IAddLabelParameters> {
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<IAddLabelParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { owner, repo, issue_number, label } = options.input;
+
+		const octokit = new Octokit({
+			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+		});
+		await octokit.rest.issues.addLabels({
+			owner,
+			repo,
+			issue_number,
+			labels: [label]
+		});
+
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Added label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\``)]);
+	}
+
+	async prepareInvocation(
+		options: vscode.LanguageModelToolInvocationPrepareOptions<IAddLabelParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { owner, repo, issue_number, label } = options.input;
+		const confirmationMessages = {
+			title: 'Add label to issue',
+			message: new vscode.MarkdownString(
+				`Add the label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\`?`
+			),
+		};
+
+		return {
+			invocationMessage: `Adding label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\``,
 			confirmationMessages,
 		};
 	}

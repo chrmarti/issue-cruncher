@@ -151,6 +151,37 @@
 						"command"
 					]
 				}
+			},
+			{
+				"name": "chat-tools-sample_addLabelToIssue",
+				"tags": [
+					"issues",
+					"chat-tools-sample"
+				],
+				"displayName": "Add Label to Issue",
+				"modelDescription": "Add a label to a GitHub issue",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"owner": {
+							"type": "string",
+							"description": "GitHub owner of the repository"
+						},
+						"repo": {
+							"type": "string",
+							"description": "GitHub repository of the issue"
+						},
+						"issue_number": {
+							"type": "number",
+							"description": "Issue number"
+						},
+						"label": {
+							"type": "string",
+							"description": "The label to add to the issue"
+						}
+					},
+					"required": ["owner", "repo", "issue_number", "label"]
+				}
 			}
 		],
 		"commands": [
