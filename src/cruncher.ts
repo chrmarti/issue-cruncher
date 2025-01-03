@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { CruncherPrompt } from './cruncherPrompt';
+import { CruncherPrompt, KnownIssue } from './cruncherPrompt';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
@@ -31,6 +31,13 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_addLabelToIssue');
 
+                    const knownIssues: KnownIssue[] = [];
+                    const files = await vscode.workspace.findFiles('*.json', undefined, 100);
+                    for (const file of files) {
+                        const content = await vscode.workspace.fs.readFile(file);
+                        knownIssues.push(JSON.parse(content.toString()));
+                    }
+
                     const options: vscode.LanguageModelChatRequestOptions = {
                         justification: 'To make a request to @cruncher',
                         tools,
@@ -41,6 +48,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         {
                             issue,
                             comments: commentsResponse.data,
+                            knownIssues,
                             context: chatContext,
                             request,
                         },
