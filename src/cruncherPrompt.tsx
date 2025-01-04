@@ -7,33 +7,38 @@ import {
 } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 
+export type SearchIssue = RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][0];
+export type IssueComment = RestEndpointMethodTypes['issues']['listComments']['response']['data'][0];
+
 export interface KnownIssue {
 	summary: string;
-	issue: RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][0];
+	issue: SearchIssue;
 }
 
-export interface CruncherProps extends BasePromptElementProps {
-	issue: RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][0];
-	comments: RestEndpointMethodTypes['issues']['listComments']['response']['data'];
+export interface SummarizationProps extends BasePromptElementProps {
+	issue: SearchIssue;
+	comments: IssueComment[];
 	knownIssues: KnownIssue[];
 	request: vscode.ChatRequest;
 	context: vscode.ChatContext;
 }
 
-export class CruncherPrompt extends PromptElement<CruncherProps, void> {
+export class SummarizationPrompt extends PromptElement<SummarizationProps, void> {
 	render(_state: void, _sizing: PromptSizing) {
 		return (
 			<UserMessage>
-				# Triage GitHub Issue<br />
+				# Summarize GitHub Issue<br />
 				<br />
-				Task:<br />
-				- Summarize the following GitHub issue and its comments in a few sentences.<br />
-				- Add one of the labels 'bug', 'feature-request', 'question', 'upstream' or 'info-needed' to the issue.<br />
-				- If the issue is a likely duplicate of one of the known issues listed at the end, say so.<br />
+				Task: Summarize the following GitHub issue and its comments in a few sentences.<br />
+				- What are the main points that could lead to the resolution of the issue?<br />
+				- Is there any information missing that the author needs to supply to resolve the issue?<br />
+				- What is the resolution of the issue?<br />
 				<br />
 				## Issue {this.props.issue.html_url} by @{this.props.issue.user?.login}<br />
 				<br />
 				Title: {this.props.issue.title}<br />
+				<br />
+				State: {this.props.issue.state}{this.props.issue.state_reason ? <> ({this.props.issue.state_reason})</> : ''}<br />
 				<br />
 				{this.props.issue.body?.replace(/(^|\n)#/g, '$1###')}<br />
 				<br />
@@ -45,16 +50,32 @@ export class CruncherPrompt extends PromptElement<CruncherProps, void> {
 						<br />
 					</>
 				))}
-				## Known Issues<br />
+			</UserMessage>
+		);
+	}
+}
+
+export interface TypeLabelProps extends BasePromptElementProps {
+	typeLabels: string[];
+	issue: SearchIssue;
+	summary: string;
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class TypeLabelPrompt extends PromptElement<TypeLabelProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		const typeLabels = this.props.typeLabels;
+		const typeLabelString = `${typeLabels.slice(0, -1).join(', ')} or ${typeLabels[typeLabels.length - 1]}`;
+		return (
+			<UserMessage>
+				# Add Type Label to GitHub Issue<br />
 				<br />
-				{this.props.knownIssues.map(({ summary, issue }) => (
-					<>
-						### {issue.html_url}<br />
-						<br />
-						{summary}<br />
-						<br />
-					</>
-				))}
+				Task: Add one of the labels {typeLabelString} to the issue.<br />
+				<br />
+				## Issue {this.props.issue.html_url} Summary<br />
+				<br />
+				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
 			</UserMessage>
 		);
 	}
