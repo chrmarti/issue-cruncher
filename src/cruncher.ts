@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt } from './cruncherPrompt';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
@@ -38,6 +38,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     const summary = await summarizeIssue(request, chatContext, stream, issue, commentsResponse.data, knownIssues, cancellationToken);
                     if (summary.trim()) {
+                        await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                         await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                     }
 
@@ -77,7 +78,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
     const knownIssue = knownIssues.find(knownIssue => knownIssue.issue.url === issue.url);
     if (knownIssue?.issue.updated_at === issue.updated_at) {
-        stream.markdown(`Known issue with summary:\n\n${knownIssue.summary}`);
+        stream.markdown(`Known issue with summary:\n\n${knownIssue.summary}\n\n`);
         return knownIssue.summary;
     }
 
@@ -107,6 +108,7 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
 
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (summary.trim() && workspaceFolder) {
+        stream.markdown('\n\n');
         const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `devcontainers-cli-${issue.number}.json`);
         const fileContent = JSON.stringify({ summary, issue }, null, 2);
         await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
@@ -115,8 +117,45 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     return summary;
 }
 
+async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
+    const infoNeededLabel = 'info-needed';
+    if (issue.labels.some(label => label.name === infoNeededLabel)) {
+        stream.markdown(`Issue already has ${infoNeededLabel} label.`);
+        return;
+    }
+
+    const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_addLabelToIssue');
+    const options: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Checking if more information is needed for @cruncher',
+        tools,
+    };
+    const model = request.model;
+    const result = await renderPrompt(
+        InfoNeededLabelPrompt,
+        {
+            infoNeededLabel,
+            issue,
+            summary,
+            context: chatContext,
+            request,
+        },
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model);
+    result.references.forEach(ref => {
+        if (ref.anchor instanceof vscode.Uri || ref.anchor instanceof vscode.Location) {
+            stream.reference(ref.anchor);
+        }
+    });
+    const response = await model.sendRequest(result.messages, options, cancellationToken);
+
+    const { calls } = await readResponse(response, stream);
+    for (const call of calls) {
+        await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
+    }
+}
+
 async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
-    const typeLabels = ['bug', 'feature-request', 'question', 'upstream', 'info-needed'];
+    const typeLabels = ['bug', 'feature-request', 'question', 'upstream'];
     const existingTypeLabel = issue.labels.find(label => label.name && typeLabels.includes(label.name));
     if (existingTypeLabel) {
         stream.markdown(`Issue already has type label: ${existingTypeLabel.name}`);

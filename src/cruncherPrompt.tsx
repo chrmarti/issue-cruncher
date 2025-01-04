@@ -55,6 +55,30 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 	}
 }
 
+export interface InfoNeededLabelProps extends BasePromptElementProps {
+	infoNeededLabel: string;
+	issue: SearchIssue;
+	summary: string;
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class InfoNeededLabelPrompt extends PromptElement<InfoNeededLabelProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		return (
+			<UserMessage>
+				# Add {this.props.infoNeededLabel} Label If Needed<br />
+				<br />
+				Task: Check if the GitHub issue summary indicates that more information is needed to resolve the issue and, if so, add the {this.props.infoNeededLabel} label.<br />
+				<br />
+				## Issue {this.props.issue.html_url} Summary<br />
+				<br />
+				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
+			</UserMessage>
+		);
+	}
+}
+
 export interface TypeLabelProps extends BasePromptElementProps {
 	typeLabels: string[];
 	issue: SearchIssue;
