@@ -111,7 +111,7 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     if (workspaceFolder) {
         stream.markdown('\n\n');
         const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `devcontainers-cli-${issue.number}.json`);
-        const fileContent = JSON.stringify({ summary, issue }, null, 2);
+        const fileContent = JSON.stringify({ summary, issue, comments }, null, 2);
         await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
     }
 

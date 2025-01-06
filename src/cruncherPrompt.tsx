@@ -24,16 +24,17 @@ export interface SummarizationProps extends BasePromptElementProps {
 
 export class SummarizationPrompt extends PromptElement<SummarizationProps, void> {
 	render(_state: void, _sizing: PromptSizing) {
+		const teamAssociations = ['MEMBER', 'OWNER'];
 		return (
 			<UserMessage>
 				# Summarize GitHub Issue<br />
 				<br />
 				Task: Summarize the following GitHub issue and its comments in a few sentences.<br />
 				- What are the main points that could lead to the resolution of the issue?<br />
-				- Is there any information missing that the author needs to supply to resolve the issue?<br />
+				- Is there any information missing that the author needs to supply to resolve the issue? Information asked for by a project member is important.<br />
 				- What is the resolution of the issue?<br />
 				<br />
-				## Issue {this.props.issue.html_url} by @{this.props.issue.user?.login}<br />
+				## Issue {this.props.issue.html_url} by @{this.props.issue.user?.login}{teamAssociations.includes(this.props.issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
 				<br />
 				Title: {this.props.issue.title}<br />
 				<br />
@@ -43,7 +44,7 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 				<br />
 				{this.props.comments.map(comment => (
 					<>
-						### Comment by @{comment.user?.login}<br />
+						### Comment by @{comment.user?.login}{teamAssociations.includes(comment.author_association) ? <> (project member)</> : <> (community member)</>}<br />
 						<br />
 						{comment.body?.replace(/(^|\n)#/g, '$1####')}<br />
 						<br />
@@ -103,6 +104,7 @@ export class InfoNeededLabelPrompt extends PromptElement<InfoNeededLabelProps, v
 				# Add {this.props.infoNeededLabel} Label If Needed<br />
 				<br />
 				Task: Check if the GitHub issue summary indicates that more information is needed to resolve the issue and, if so, add the {this.props.infoNeededLabel} label.<br />
+				- E.g., information asked for by a project member.<br />
 				<br />
 				## Issue {this.props.issue.html_url} Summary<br />
 				<br />
