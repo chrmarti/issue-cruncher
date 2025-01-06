@@ -18,7 +18,6 @@ export interface KnownIssue {
 export interface SummarizationProps extends BasePromptElementProps {
 	issue: SearchIssue;
 	comments: IssueComment[];
-	knownIssues: KnownIssue[];
 	request: vscode.ChatRequest;
 	context: vscode.ChatContext;
 }
@@ -48,6 +47,40 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 						<br />
 						{comment.body?.replace(/(^|\n)#/g, '$1####')}<br />
 						<br />
+					</>
+				))}
+			</UserMessage>
+		);
+	}
+}
+
+export interface FindDuplicateProps extends BasePromptElementProps {
+	issue: SearchIssue;
+	summary: string;
+	knownIssues: KnownIssue[];
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		return (
+			<UserMessage>
+				# Find Duplicate Issue<br />
+				<br />
+				Task: Check if the current GitHub issue is already tracked in an existing issue and, if so, close the current issue as a duplicate of this existing original issue.<br />
+				- Is one of the existing issues sufficiently similar to the current issue to consider them duplicates?<br />
+				- Would the resolution of one of the existing issues likely also resolve the current issue?<br />
+				<br />
+				## Current Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
+				<br />
+				{this.props.summary.replace(/(^|\n)#/g, '$1#')}<br />
+				{this.props.knownIssues.filter(issue => issue.issue.url !== this.props.issue.url).map(issue => (
+					<>
+						<br />
+						## Existing Issue {issue.issue.repository_url.split('/').slice(-2).join('/')}#{issue.issue.number}<br />
+						<br />
+						{issue.summary.replace(/(^|\n)#/g, '$1#')}<br />
 					</>
 				))}
 			</UserMessage>

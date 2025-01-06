@@ -6,6 +6,7 @@ export function registerChatTools(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_findFiles', new FindFilesTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_runInTerminal', new RunInTerminalTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_addLabelToIssue', new AddLabelToIssueTool()));
+	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_closeAsDuplicate', new CloseAsDuplicateTool()));
 }
 
 interface ITabCountParameters {
@@ -161,16 +162,16 @@ export class RunInTerminalTool
 	}
 }
 
-interface IAddLabelParameters {
+interface AddLabelParameters {
 	owner: string;
 	repo: string;
 	issue_number: number;
 	label: string;
 }
 
-class AddLabelToIssueTool implements vscode.LanguageModelTool<IAddLabelParameters> {
+class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters> {
 	async invoke(
-		options: vscode.LanguageModelToolInvocationOptions<IAddLabelParameters>,
+		options: vscode.LanguageModelToolInvocationOptions<AddLabelParameters>,
 		_token: vscode.CancellationToken
 	) {
 		const { owner, repo, issue_number, label } = options.input;
@@ -189,7 +190,7 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<IAddLabelParameter
 	}
 
 	async prepareInvocation(
-		options: vscode.LanguageModelToolInvocationPrepareOptions<IAddLabelParameters>,
+		options: vscode.LanguageModelToolInvocationPrepareOptions<AddLabelParameters>,
 		_token: vscode.CancellationToken
 	) {
 		const { owner, repo, issue_number, label } = options.input;
@@ -202,6 +203,60 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<IAddLabelParameter
 
 		return {
 			invocationMessage: `Adding label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\``,
+			confirmationMessages,
+		};
+	}
+}
+
+interface CloseAsDuplicateParameters {
+	current_issue_owner: string;
+	current_issue_repo: string;
+	current_issue_number: number;
+	original_issue_owner: string;
+	original_issue_repo: string;
+	original_issue_number: number;
+}
+
+class CloseAsDuplicateTool implements vscode.LanguageModelTool<CloseAsDuplicateParameters> {
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<CloseAsDuplicateParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { current_issue_owner, current_issue_repo, current_issue_number, original_issue_owner, original_issue_repo, original_issue_number } = options.input;
+
+		const octokit = new Octokit({
+			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+		});
+		await octokit.rest.issues.createComment({
+			owner: current_issue_owner,
+			repo: current_issue_repo,
+			issue_number: current_issue_number,
+			body: `Duplicate of ${original_issue_owner}/${original_issue_repo}#${original_issue_number}`
+		});
+		await octokit.rest.issues.update({
+			owner: current_issue_owner,
+			repo: current_issue_repo,
+			issue_number: current_issue_number,
+			state: 'closed'
+		});
+
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Closed issue \`${current_issue_owner}/${current_issue_repo}#${current_issue_number}\` as a duplicate of \`${original_issue_owner}/${original_issue_repo}#${original_issue_number}\``)]);
+	}
+
+	async prepareInvocation(
+		options: vscode.LanguageModelToolInvocationPrepareOptions<CloseAsDuplicateParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { current_issue_owner, current_issue_repo, current_issue_number, original_issue_owner, original_issue_repo, original_issue_number } = options.input;
+		const confirmationMessages = {
+			title: 'Close issue as duplicate',
+			message: new vscode.MarkdownString(
+				`Close issue [${current_issue_owner}/${current_issue_repo}#${current_issue_number}](https://github.com/${current_issue_owner}/${current_issue_repo}/issues/${current_issue_number}) as a duplicate of [${original_issue_owner}/${original_issue_repo}#${original_issue_number}](https://github.com/${original_issue_owner}/${original_issue_repo}/issues/${original_issue_number})?`
+			),
+		};
+
+		return {
+			invocationMessage: `Closing issue \`${current_issue_owner}/${current_issue_repo}#${current_issue_number}\` as a duplicate of \`${original_issue_owner}/${original_issue_repo}#${original_issue_number}\``,
 			confirmationMessages,
 		};
 	}

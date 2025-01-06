@@ -183,6 +183,45 @@
 					},
 					"required": ["owner", "repo", "issue_number", "label"]
 				}
+			},
+			{
+				"name": "chat-tools-sample_closeAsDuplicate",
+				"tags": [
+					"issues",
+					"chat-tools-sample"
+				],
+				"displayName": "Close as Duplicate",
+				"modelDescription": "Close the current GitHub issue as a duplicate of an original issue",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"current_issue_owner": {
+							"type": "string",
+							"description": "Current issue's GitHub owner"
+						},
+						"current_issue_repo": {
+							"type": "string",
+							"description": "Current issue's GitHub repository"
+						},
+						"current_issue_number": {
+							"type": "number",
+							"description": "Current issue's number"
+						},
+						"original_issue_owner": {
+							"type": "string",
+							"description": "Original issue's GitHub owner"
+						},
+						"original_issue_repo": {
+							"type": "string",
+							"description": "Original issue's GitHub repository"
+						},
+						"original_issue_number": {
+							"type": "number",
+							"description": "Original issue's number"
+						}
+					},
+					"required": ["current_issue_owner", "current_issue_repo", "current_issue_number", "original_issue_owner", "original_issue_repo", "original_issue_number"]
+				}
 			}
 		],
 		"commands": [
