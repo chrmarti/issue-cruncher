@@ -3,6 +3,7 @@ import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt } from './cruncherPrompt';
+import { CloseAsDuplicateParameters } from './tools';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
@@ -80,9 +81,10 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
     const knownIssue = knownIssues.find(knownIssue => knownIssue.issue.url === issue.url);
     if (knownIssue?.issue.updated_at === issue.updated_at) {
-        stream.markdown(`Known issue with summary:\n\n${knownIssue.summary}\n\n`);
+        stream.markdown(`## Existing Summary\n\n${knownIssue.summary}\n\n`);
         return knownIssue.summary;
     }
+    stream.markdown(`## Computing Summary\n\n`);
 
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Summarizing issue for @cruncher',
@@ -106,10 +108,10 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const response = await model.sendRequest(result.messages, options, cancellationToken);
 
     const { text: summary } = await readResponse(response, stream);
+    stream.markdown('\n\n');
 
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
-        stream.markdown('\n\n');
         const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `devcontainers-cli-${issue.number}.json`);
         const fileContent = JSON.stringify({ summary, issue, comments }, null, 2);
         await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
@@ -119,6 +121,7 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
 }
 
 async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
+    stream.markdown(`## Finding Duplicate\n\n`);
     const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_closeAsDuplicate');
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Finding duplicates for @cruncher',
@@ -148,7 +151,9 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
     if (calls.length) {
         try {
             for (const call of calls) {
-                await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
+                const input = call.input as CloseAsDuplicateParameters;
+                stream.markdown(`### Duplicate Issue\n\n${knownIssues.find(i => i.issue.url === `https://github.com/${input.original_issue_owner}/${input.original_issue_repo}/issues/${input.original_issue_number}`)?.summary}\n\n`);
+                await vscode.lm.invokeTool(call.name, { input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
             }
             return true;
         } catch (err) {
@@ -161,9 +166,10 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
 }
 
 async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
+    stream.markdown(`## Info Needed\n\n`);
     const infoNeededLabel = 'info-needed';
     if (issue.labels.some(label => label.name === infoNeededLabel)) {
-        stream.markdown(`Issue already has ${infoNeededLabel} label.`);
+        stream.markdown(`Issue already has ${infoNeededLabel} label.\n\n`);
         return;
     }
 
@@ -192,6 +198,7 @@ async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vs
     const response = await model.sendRequest(result.messages, options, cancellationToken);
 
     const { calls } = await readResponse(response, stream);
+    stream.markdown('\n\n');
     try {
         for (const call of calls) {
             await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
@@ -204,10 +211,17 @@ async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vs
 }
 
 async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
-    const typeLabels = ['bug', 'feature-request', 'question', 'upstream'];
-    const existingTypeLabel = issue.labels.find(label => label.name && typeLabels.includes(label.name));
+    stream.markdown(`## Type Label\n\n`);
+    const typeLabels = {
+        bug: 'A problem or error in the software',
+        'feature-request': 'A request for a new feature or enhancement',
+        question: 'A question or inquiry about the software',
+        upstream: 'An issue that originates from an upstream dependency',
+        debt: 'Technical debt that needs to be addressed'
+    };
+    const existingTypeLabel = issue.labels.find(label => label.name && label.name in typeLabels);
     if (existingTypeLabel) {
-        stream.markdown(`Issue already has type label: ${existingTypeLabel.name}`);
+        stream.markdown(`Issue already has type label: ${existingTypeLabel.name}\n\n`);
         return;
     }
 
@@ -236,6 +250,7 @@ async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const response = await model.sendRequest(result.messages, options, cancellationToken);
 
     const { calls } = await readResponse(response, stream);
+    stream.markdown('\n\n');
     try {
         for (const call of calls) {
             await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);

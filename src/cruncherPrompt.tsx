@@ -71,7 +71,7 @@ export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void>
 				<br />
 				Task: Check if the current GitHub issue is already tracked in an existing issue and, if so, close the current issue as a duplicate of this existing original issue.<br />
 				- Is one of the existing issues sufficiently similar to the current issue to consider them duplicates?<br />
-				- Would the resolution of one of the existing issues likely also resolve the current issue?<br />
+				- Are the main points of one of the existing issues the same or very similar to the main points of the current issue?<br />
 				<br />
 				## Current Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
 				<br />
@@ -115,7 +115,7 @@ export class InfoNeededLabelPrompt extends PromptElement<InfoNeededLabelProps, v
 }
 
 export interface TypeLabelProps extends BasePromptElementProps {
-	typeLabels: string[];
+	typeLabels: Record<string, string>;
 	issue: SearchIssue;
 	summary: string;
 	request: vscode.ChatRequest;
@@ -124,13 +124,17 @@ export interface TypeLabelProps extends BasePromptElementProps {
 
 export class TypeLabelPrompt extends PromptElement<TypeLabelProps, void> {
 	render(_state: void, _sizing: PromptSizing) {
-		const typeLabels = this.props.typeLabels;
-		const typeLabelString = `${typeLabels.slice(0, -1).join(', ')} or ${typeLabels[typeLabels.length - 1]}`;
+		const typeLabels = Object.keys(this.props.typeLabels);
+		const typeLabelStrings = typeLabels.map(label => `\`${label}\``);
+		const typeLabelsString = `${typeLabelStrings.slice(0, -1).join(', ')} or ${typeLabelStrings[typeLabelStrings.length - 1]}`;
 		return (
 			<UserMessage>
 				# Add Type Label to GitHub Issue<br />
 				<br />
-				Task: Add one of the labels {typeLabelString} to the issue.<br />
+				Task: Add one of the labels {typeLabelsString} to the issue.<br />
+				{typeLabels.map(label => (
+					<>- `{label}`: {this.props.typeLabels[label]}<br /></>
+				))}
 				<br />
 				## Issue {this.props.issue.html_url} Summary<br />
 				<br />

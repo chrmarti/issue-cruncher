@@ -208,7 +208,7 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters
 	}
 }
 
-interface CloseAsDuplicateParameters {
+export interface CloseAsDuplicateParameters {
 	current_issue_owner: string;
 	current_issue_repo: string;
 	current_issue_number: number;
