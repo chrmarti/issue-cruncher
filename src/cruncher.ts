@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
@@ -22,6 +22,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                 // const issue = response.data.items[0];
 
                 let issue: SearchIssue | undefined;
+                let lastReadAt: string | undefined;
                 const iterator = octokit.paginate.iterator(octokit.rest.activity.listNotificationsForAuthenticatedUser);
                 outerLoop:
                 for await (const res of iterator) {
@@ -33,6 +34,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                                 issue_number: parseInt(notification.subject.url.split('/').pop()!),
                             });
                             issue = response.data;
+                            lastReadAt = (notification.last_read_at?.localeCompare(issue.updated_at) ?? 0) < 0 ? notification.last_read_at! : issue.updated_at;
                             break outerLoop;
                         }
                     }
@@ -56,6 +58,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     }
 
                     const summary = await summarizeIssue(request, chatContext, stream, issue, commentsResponse.data, knownIssues, cancellationToken);
+                    await summarizeUpdate(request, chatContext, stream, issue, commentsResponse.data, lastReadAt, cancellationToken);
 
                     const closed = await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                     if (closed) {
@@ -138,6 +141,44 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     }
 
     return summary;
+}
+
+async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, comments: IssueComment[], lastReadAt: string | undefined, cancellationToken: vscode.CancellationToken) {
+    if (!lastReadAt) {
+        return;
+    }
+    const newComments = comments.filter(comment => lastReadAt.localeCompare(comment.created_at) <= 0);
+    if (!newComments.length) {
+        newComments.push(comments[comments.length - 1]);
+    }
+    if (!newComments.length) {
+        return;
+    }
+    stream.markdown(`## Summarizing Update\n\n`);
+
+    const options: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Summarizing update for @cruncher',
+    };
+    const model = request.model;
+    const result = await renderPrompt(
+        UpdateSummarizationPrompt,
+        {
+            issue,
+            newComments,
+            context: chatContext,
+            request,
+        },
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model);
+    result.references.forEach(ref => {
+        if (ref.anchor instanceof vscode.Uri || ref.anchor instanceof vscode.Location) {
+            stream.reference(ref.anchor);
+        }
+    });
+    const response = await model.sendRequest(result.messages, options, cancellationToken);
+
+    await readResponse(response, stream);
+    stream.markdown('\n\n');
 }
 
 async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
