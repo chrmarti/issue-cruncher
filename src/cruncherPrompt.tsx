@@ -7,7 +7,7 @@ import {
 } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
 
-export type SearchIssue = RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][0];
+export type SearchIssue = RestEndpointMethodTypes['issues']['get']['response']['data'] | RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][0];
 export type IssueComment = RestEndpointMethodTypes['issues']['listComments']['response']['data'][0];
 
 export interface KnownIssue {

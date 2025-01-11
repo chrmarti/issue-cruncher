@@ -8,23 +8,41 @@ import { CloseAsDuplicateParameters } from './tools';
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
         if (request.command === 'next') {
-            stream.progress('Fetching the most recent open issue...');
+            stream.progress('Fetching the next issue...');
             try {
                 const octokit = new Octokit({
                     auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
                 });
-                const response = await octokit.rest.search.issuesAndPullRequests({
-                    q: 'repo:devcontainers/cli is:issue is:open -label:bug -label:feature-request -label:question -label:info-needed -label:under-discussion -label:debt -label:upstream -label:polish',
-                    sort: 'created',
-                    order: 'desc',
-                    per_page: 1
-                });
+                // const response = await octokit.rest.search.issuesAndPullRequests({
+                //     q: 'repo:devcontainers/cli is:issue is:open -label:bug -label:feature-request -label:question -label:info-needed -label:under-discussion -label:debt -label:upstream -label:polish',
+                //     sort: 'created',
+                //     order: 'desc',
+                //     per_page: 1
+                // });
+                // const issue = response.data.items[0];
 
-                const issue = response.data.items[0];
+                let issue: SearchIssue | undefined;
+                const iterator = octokit.paginate.iterator(octokit.rest.activity.listNotificationsForAuthenticatedUser);
+                outerLoop:
+                for await (const res of iterator) {
+                    for (const notification of res.data) {
+                        if (notification.subject.type === 'Issue') {
+                            const response = await octokit.rest.issues.get({
+                                owner: notification.repository.owner.login,
+                                repo: notification.repository.name,
+                                issue_number: parseInt(notification.subject.url.split('/').pop()!),
+                            });
+                            issue = response.data;
+                            break outerLoop;
+                        }
+                    }
+                }
+
                 if (issue) {
+                    const [owner, repo] = issue.repository_url.split('/').slice(-2);
                     const commentsResponse = await octokit.rest.issues.listComments({
-                        owner: 'devcontainers',
-                        repo: 'cli',
+                        owner,
+                        repo,
                         issue_number: issue.number
                     });
 
@@ -38,6 +56,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     }
 
                     const summary = await summarizeIssue(request, chatContext, stream, issue, commentsResponse.data, knownIssues, cancellationToken);
+
                     const closed = await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                     if (closed) {
                         return;
@@ -112,7 +131,8 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
 
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
     if (workspaceFolder) {
-        const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `devcontainers-cli-${issue.number}.json`);
+        const [owner, repo] = issue.repository_url.split('/').slice(-2);
+        const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `${owner}-${repo}-${issue.number}.json`);
         const fileContent = JSON.stringify({ summary, issue, comments }, null, 2);
         await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
     }
@@ -122,6 +142,10 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
 
 async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
     stream.markdown(`## Finding Duplicate\n\n`);
+    if (!knownIssues.length) {
+        stream.markdown(`No known issues to compare against.\n\n`);
+        return false;
+    }
     const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_closeAsDuplicate');
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Finding duplicates for @cruncher',
@@ -168,7 +192,7 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
 async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
     stream.markdown(`## Info Needed\n\n`);
     const infoNeededLabel = 'info-needed';
-    if (issue.labels.some(label => label.name === infoNeededLabel)) {
+    if (issue.labels.some(label => (typeof label === 'string' ? label : label.name) === infoNeededLabel)) {
         stream.markdown(`Issue already has ${infoNeededLabel} label.\n\n`);
         return;
     }
@@ -219,9 +243,10 @@ async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.C
         upstream: 'An issue that originates from an upstream dependency',
         debt: 'Technical debt that needs to be addressed'
     };
-    const existingTypeLabel = issue.labels.find(label => label.name && label.name in typeLabels);
+    const existingTypeLabel = issue.labels.map(label => typeof label === 'string' ? label : label.name)
+        .find(label => label && label in typeLabels);
     if (existingTypeLabel) {
-        stream.markdown(`Issue already has type label: ${existingTypeLabel.name}\n\n`);
+        stream.markdown(`Issue already has type label: ${existingTypeLabel}\n\n`);
         return;
     }
 
