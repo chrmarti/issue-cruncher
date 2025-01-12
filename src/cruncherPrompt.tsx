@@ -58,6 +58,7 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 
 export interface UpdateSummarizationProps extends BasePromptElementProps {
 	issue: SearchIssue;
+	comments: IssueComment[];
 	newComments: IssueComment[];
 	request: vscode.ChatRequest;
 	context: vscode.ChatContext;
@@ -70,9 +71,9 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 			<UserMessage>
 				# Summarize GitHub Comments<br />
 				<br />
-				Task: Summarize the following GitHub comments that were added to an existing issue.<br />
-				- What are the main points that could lead to the resolution of the issue?<br />
-				- What is the resolution of the issue?<br />
+				Task: Summarize the new comments on the following GitHub issue.<br />
+				- What information do the new comments add to the issue?
+				- Are there any additional points added by the new comments that can lead to the resolution of the issue?<br />
 				<br />
 				## Issue {this.props.issue.html_url} by @{this.props.issue.user?.login}{teamAssociations.includes(this.props.issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
 				<br />
@@ -80,9 +81,9 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 				<br />
 				State: {this.props.issue.state}{this.props.issue.state_reason ? <> ({this.props.issue.state_reason})</> : ''}<br />
 				<br />
-				{this.props.newComments.map(comment => (
+				{this.props.comments.map(comment => (
 					<>
-						### New Comment by @{comment.user?.login}{teamAssociations.includes(comment.author_association) ? <> (project member)</> : <> (community member)</>}<br />
+						### {this.props.newComments.indexOf(comment) !== -1 ? 'New' : 'Old'} Comment by @{comment.user?.login}{teamAssociations.includes(comment.author_association) ? <> (project member)</> : <> (community member)</>}<br />
 						<br />
 						{comment.body?.replace(/(^|\n)#/g, '$1####')}<br />
 						<br />

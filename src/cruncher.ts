@@ -167,6 +167,7 @@ async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.
         UpdateSummarizationPrompt,
         {
             issue,
+            comments,
             newComments,
             context: chatContext,
             request,
