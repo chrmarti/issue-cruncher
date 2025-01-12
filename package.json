@@ -222,6 +222,25 @@
 					},
 					"required": ["current_issue_owner", "current_issue_repo", "current_issue_number", "original_issue_owner", "original_issue_repo", "original_issue_number"]
 				}
+			},
+			{
+				"name": "chat-tools-sample_markNotificationRead",
+				"tags": [
+					"issues",
+					"chat-tools-sample"
+				],
+				"displayName": "Mark Notification Read",
+				"modelDescription": "Mark notifcation as read",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"notification_id": {
+							"type": "number",
+							"description": "Notification id"
+						}
+					},
+					"required": ["notification_id"]
+				}
 			}
 		],
 		"commands": [

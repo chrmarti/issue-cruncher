@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
@@ -22,12 +22,14 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                 // const issue = response.data.items[0];
 
                 let issue: SearchIssue | undefined;
+                let notification: Notification | undefined;
                 let lastReadAt: string | undefined;
                 const iterator = octokit.paginate.iterator(octokit.rest.activity.listNotificationsForAuthenticatedUser);
                 outerLoop:
                 for await (const res of iterator) {
-                    for (const notification of res.data) {
-                        if (notification.subject.type === 'Issue') {
+                    for (const current of res.data) {
+                        if (current.subject.type === 'Issue') {
+                            notification = current;
                             const response = await octokit.rest.issues.get({
                                 owner: notification.repository.owner.login,
                                 repo: notification.repository.name,
@@ -68,6 +70,9 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     }
                     await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                     await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                    if (notification) {
+                        await markAsRead(request, chatContext, stream, notification, cancellationToken);
+                    }
 
                 } else {
                     stream.markdown('No open issues found.');
@@ -307,6 +312,43 @@ async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.C
             typeLabels,
             issue,
             summary,
+            context: chatContext,
+            request,
+        },
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model);
+    result.references.forEach(ref => {
+        if (ref.anchor instanceof vscode.Uri || ref.anchor instanceof vscode.Location) {
+            stream.reference(ref.anchor);
+        }
+    });
+    const response = await model.sendRequest(result.messages, options, cancellationToken);
+
+    const { calls } = await readResponse(response, stream);
+    stream.markdown('\n\n');
+    try {
+        for (const call of calls) {
+            await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
+        }
+    } catch (err) {
+        if (err?.name !== 'Canceled') {
+            throw err;
+        }
+    }
+}
+
+async function markAsRead(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, notification: Notification, cancellationToken: vscode.CancellationToken) {
+    stream.markdown(`## Mark As Read\n\n`);
+    const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_markNotificationRead');
+    const options: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Marking notification as read for @cruncher',
+        tools,
+    };
+    const model = request.model;
+    const result = await renderPrompt(
+        MarkReadPrompt,
+        {
+            notification,
             context: chatContext,
             request,
         },

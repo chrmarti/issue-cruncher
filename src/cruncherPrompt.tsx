@@ -9,6 +9,7 @@ import * as vscode from 'vscode';
 
 export type CurrentUser = RestEndpointMethodTypes['users']['getAuthenticated']['response']['data'];
 export type SearchIssue = RestEndpointMethodTypes['issues']['get']['response']['data'] | RestEndpointMethodTypes['search']['issuesAndPullRequests']['response']['data']['items'][0];
+export type Notification = RestEndpointMethodTypes['activity']['listNotificationsForAuthenticatedUser']['response']['data'][0];
 export type IssueComment = RestEndpointMethodTypes['issues']['listComments']['response']['data'][0];
 
 export interface KnownIssue {
@@ -178,6 +179,24 @@ export class TypeLabelPrompt extends PromptElement<TypeLabelProps, void> {
 				## Issue {this.props.issue.html_url} Summary<br />
 				<br />
 				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
+			</UserMessage>
+		);
+	}
+}
+
+export interface MarkReadProps extends BasePromptElementProps {
+	notification: Notification;
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class MarkReadPrompt extends PromptElement<MarkReadProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		return (
+			<UserMessage>
+				# Mark Notification As Read<br />
+				<br />
+				Task: Mark the notification with id {this.props.notification.id} as read.<br />
 			</UserMessage>
 		);
 	}

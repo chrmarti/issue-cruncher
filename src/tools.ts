@@ -7,6 +7,7 @@ export function registerChatTools(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_runInTerminal', new RunInTerminalTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_addLabelToIssue', new AddLabelToIssueTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_closeAsDuplicate', new CloseAsDuplicateTool()));
+	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_markNotificationRead', new MarkReadTool()));
 }
 
 interface ITabCountParameters {
@@ -257,6 +258,44 @@ class CloseAsDuplicateTool implements vscode.LanguageModelTool<CloseAsDuplicateP
 
 		return {
 			invocationMessage: `Closing issue \`${current_issue_owner}/${current_issue_repo}#${current_issue_number}\` as a duplicate of \`${original_issue_owner}/${original_issue_repo}#${original_issue_number}\``,
+			confirmationMessages,
+		};
+	}
+}
+
+export interface MarkReadParameters {
+	notification_id: number;
+}
+
+class MarkReadTool implements vscode.LanguageModelTool<MarkReadParameters> {
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<MarkReadParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { notification_id } = options.input;
+
+		const octokit = new Octokit({
+			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+		});
+		await octokit.rest.activity.markThreadAsRead({ thread_id: notification_id });
+
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Marked notification as read`)]);
+	}
+
+	async prepareInvocation(
+		_options: vscode.LanguageModelToolInvocationPrepareOptions<MarkReadParameters>,
+		_token: vscode.CancellationToken
+	) {
+
+		const confirmationMessages = {
+			title: `Mark notification as read`,
+			message: new vscode.MarkdownString(
+				`Mark the notification as read?`
+			),
+		};
+
+		return {
+			invocationMessage: `Marking notification as read`,
 			confirmationMessages,
 		};
 	}
