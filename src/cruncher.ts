@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
@@ -58,7 +58,9 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     }
 
                     const summary = await summarizeIssue(request, chatContext, stream, issue, commentsResponse.data, knownIssues, cancellationToken);
-                    await summarizeUpdate(request, chatContext, stream, issue, commentsResponse.data, lastReadAt, cancellationToken);
+                    const userResponse = await octokit.rest.users.getAuthenticated();
+                    const currentUser = userResponse.data;
+                    await summarizeUpdate(request, chatContext, stream, currentUser, issue, commentsResponse.data, lastReadAt, cancellationToken);
 
                     const closed = await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                     if (closed) {
@@ -143,18 +145,19 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     return summary;
 }
 
-async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, comments: IssueComment[], lastReadAt: string | undefined, cancellationToken: vscode.CancellationToken) {
+async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], lastReadAt: string | undefined, cancellationToken: vscode.CancellationToken) {
     if (!lastReadAt) {
         return;
     }
-    const newComments = comments.filter(comment => lastReadAt.localeCompare(comment.created_at) <= 0);
+    stream.markdown(`## Summarizing Update\n\n`);
+    const newComments = comments.filter(comment =>
+        comment.user?.login !== currentUser.login &&
+        lastReadAt.localeCompare(comment.created_at) <= 0
+    );
     if (!newComments.length) {
-        newComments.push(comments[comments.length - 1]);
-    }
-    if (!newComments.length) {
+        stream.markdown(`No new comments.\n\n`);
         return;
     }
-    stream.markdown(`## Summarizing Update\n\n`);
 
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Summarizing update for @cruncher',
