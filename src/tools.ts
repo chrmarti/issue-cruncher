@@ -7,6 +7,7 @@ export function registerChatTools(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_runInTerminal', new RunInTerminalTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_addLabelToIssue', new AddLabelToIssueTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_closeAsDuplicate', new CloseAsDuplicateTool()));
+	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_closeIssue', new CloseIssueTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_markNotificationRead', new MarkReadTool()));
 }
 
@@ -258,6 +259,58 @@ class CloseAsDuplicateTool implements vscode.LanguageModelTool<CloseAsDuplicateP
 
 		return {
 			invocationMessage: `Closing issue \`${current_issue_owner}/${current_issue_repo}#${current_issue_number}\` as a duplicate of \`${original_issue_owner}/${original_issue_repo}#${original_issue_number}\``,
+			confirmationMessages,
+		};
+	}
+}
+
+export interface CloseIssueParameters {
+	issue_owner: string;
+	issue_repo: string;
+	issue_number: number;
+	comment: string;
+}
+
+class CloseIssueTool implements vscode.LanguageModelTool<CloseIssueParameters> {
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<CloseIssueParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { issue_owner, issue_repo, issue_number, comment } = options.input;
+
+		const octokit = new Octokit({
+			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+		});
+		await octokit.rest.issues.createComment({
+			owner: issue_owner,
+			repo: issue_repo,
+			issue_number: issue_number,
+			body: comment
+		});
+		await octokit.rest.issues.update({
+			owner: issue_owner,
+			repo: issue_repo,
+			issue_number: issue_number,
+			state: 'closed'
+		});
+
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Closed issue \`${issue_owner}/${issue_repo}#${issue_number}\``)]);
+	}
+
+	async prepareInvocation(
+		options: vscode.LanguageModelToolInvocationPrepareOptions<CloseIssueParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { issue_owner, issue_repo, issue_number, comment } = options.input;
+		const confirmationMessages = {
+			title: 'Close issue with comment',
+			message: new vscode.MarkdownString(
+				`Close issue [${issue_owner}/${issue_repo}#${issue_number}](https://github.com/${issue_owner}/${issue_repo}/issues/${issue_number}) with comment \`${comment}\`?`
+			),
+		};
+
+		return {
+			invocationMessage: `Closing issue \`${issue_owner}/${issue_repo}#${issue_number}\` with comment`,
 			confirmationMessages,
 		};
 	}

@@ -185,6 +185,37 @@
 				}
 			},
 			{
+				"name": "chat-tools-sample_closeIssue",
+				"tags": [
+					"issues",
+					"chat-tools-sample"
+				],
+				"displayName": "Close Issue",
+				"modelDescription": "Close a GitHub issue with a comment",
+				"inputSchema": {
+					"type": "object",
+					"properties": {
+						"issue_owner": {
+							"type": "string",
+							"description": "The issue's GitHub owner"
+						},
+						"issue_repo": {
+							"type": "string",
+							"description": "The issue's GitHub repository"
+						},
+						"issue_number": {
+							"type": "number",
+							"description": "The issue's number"
+						},
+						"comment": {
+							"type": "string",
+							"description": "The comment to add"
+						}
+					},
+					"required": ["issue_owner", "issue_repo", "issue_number", "comment"]
+				}
+			},
+			{
 				"name": "chat-tools-sample_closeAsDuplicate",
 				"tags": [
 					"issues",

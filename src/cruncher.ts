@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
@@ -36,7 +36,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                                 issue_number: parseInt(notification.subject.url.split('/').pop()!),
                             });
                             issue = response.data;
-                            lastReadAt = (notification.last_read_at?.localeCompare(issue.updated_at) ?? 0) < 0 ? notification.last_read_at! : issue.updated_at;
+                            lastReadAt = notification.last_read_at || undefined;
                             break outerLoop;
                         }
                     }
@@ -64,12 +64,12 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     const currentUser = userResponse.data;
                     await summarizeUpdate(request, chatContext, stream, currentUser, issue, commentsResponse.data, lastReadAt, cancellationToken);
 
-                    const closed = await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
-                    if (closed) {
-                        return;
+                    let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
+                    closed ||= await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
+                    if (!closed) {
+                        await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                        await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                     }
-                    await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
-                    await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                     if (notification) {
                         await markAsRead(request, chatContext, stream, notification, cancellationToken);
                     }
@@ -188,6 +188,51 @@ async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.
 
     await readResponse(response, stream);
     stream.markdown('\n\n');
+}
+
+async function checkResolution(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
+    if (issue.state === 'closed') {
+        return true;
+    }
+    stream.markdown(`## Checking Resolution\n\n`);
+    const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_closeIssue');
+    const options: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Checking issue resolution for @cruncher',
+        tools,
+    };
+    const model = request.model;
+    const result = await renderPrompt(
+        CheckResolutionPrompt,
+        {
+            issue,
+            summary,
+            context: chatContext,
+            request,
+        },
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model);
+    result.references.forEach(ref => {
+        if (ref.anchor instanceof vscode.Uri || ref.anchor instanceof vscode.Location) {
+            stream.reference(ref.anchor);
+        }
+    });
+    const response = await model.sendRequest(result.messages, options, cancellationToken);
+
+    const { calls } = await readResponse(response, stream);
+    stream.markdown('\n\n');
+    if (calls.length) {
+        try {
+            for (const call of calls) {
+                await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
+            }
+            return true;
+        } catch (err) {
+            if (err?.name !== 'Canceled') {
+                throw err;
+            }
+        }
+    }
+    return false;
 }
 
 async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {

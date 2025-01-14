@@ -3,6 +3,7 @@ import {
 	BasePromptElementProps,
 	PromptElement,
 	PromptSizing,
+	TextChunk,
 	UserMessage
 } from '@vscode/prompt-tsx';
 import * as vscode from 'vscode';
@@ -95,6 +96,30 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 	}
 }
 
+export interface CheckResolutionProps extends BasePromptElementProps {
+	issue: SearchIssue;
+	summary: string;
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class CheckResolutionPrompt extends PromptElement<CheckResolutionProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		return (
+			<UserMessage>
+				# Check for Issue Resolution<br />
+				<br />
+				Task: Check if the current GitHub issue has a resolution and can be closed.<br />
+				- If the issue can be closed, close it with a brief comment stating why it is being closed.<br />
+				<br />
+				## Current Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
+				<br />
+				{this.props.summary.replace(/(^|\n)#/g, '$1#')}<br />
+			</UserMessage>
+		);
+	}
+}
+
 export interface FindDuplicateProps extends BasePromptElementProps {
 	issue: SearchIssue;
 	summary: string;
@@ -105,6 +130,8 @@ export interface FindDuplicateProps extends BasePromptElementProps {
 
 export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void> {
 	render(_state: void, _sizing: PromptSizing) {
+		const knownIssues = this.props.knownIssues.filter(issue => issue.issue.url !== this.props.issue.url);
+		knownIssues.sort((a, b) => a.issue.updated_at < b.issue.updated_at ? 1 : -1);
 		return (
 			<UserMessage>
 				# Find Duplicate Issue<br />
@@ -116,13 +143,13 @@ export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void>
 				## Current Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
 				<br />
 				{this.props.summary.replace(/(^|\n)#/g, '$1#')}<br />
-				{this.props.knownIssues.filter(issue => issue.issue.url !== this.props.issue.url).map(issue => (
-					<>
+				{knownIssues.map((issue, i) => (
+					<TextChunk priority={knownIssues.length - i}>
 						<br />
 						## Existing Issue {issue.issue.repository_url.split('/').slice(-2).join('/')}#{issue.issue.number}<br />
 						<br />
 						{issue.summary.replace(/(^|\n)#/g, '$1#')}<br />
-					</>
+					</TextChunk>
 				))}
 			</UserMessage>
 		);
