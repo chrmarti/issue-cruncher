@@ -110,7 +110,7 @@ export class CheckResolutionPrompt extends PromptElement<CheckResolutionProps, v
 				# Check for Issue Resolution<br />
 				<br />
 				Task: Check if the current GitHub issue has a resolution and can be closed.<br />
-				- If the issue can be closed, close it with a brief comment stating why it is being closed.<br />
+				- If the issue can be closed, close it with the comment "Closing as resolved. Thanks!".<br />
 				<br />
 				## Current Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
 				<br />
