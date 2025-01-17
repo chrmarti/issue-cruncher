@@ -19,6 +19,7 @@ export interface KnownIssue {
 }
 
 export interface SummarizationProps extends BasePromptElementProps {
+	currentUser: CurrentUser;
 	issue: SearchIssue;
 	comments: IssueComment[];
 	request: vscode.ChatRequest;
@@ -32,7 +33,7 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 			<UserMessage>
 				# Summarize GitHub Issue<br />
 				<br />
-				Task: Summarize the following GitHub issue and its comments in a few sentences.<br />
+				Task: Summarize the following GitHub issue and its comments in a few sentences for @{this.props.currentUser.login}.<br />
 				- What are the main points that could lead to the resolution of the issue?<br />
 				- Is there any information missing that the author needs to supply to resolve the issue? Information asked for by a project member is important.<br />
 				- What is the resolution of the issue?<br />
@@ -59,6 +60,7 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 }
 
 export interface UpdateSummarizationProps extends BasePromptElementProps {
+	currentUser: CurrentUser;
 	issue: SearchIssue;
 	comments: IssueComment[];
 	newComments: IssueComment[];
@@ -73,7 +75,7 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 			<UserMessage>
 				# Summarize GitHub Comments<br />
 				<br />
-				Task: Summarize the new comments on the following GitHub issue.<br />
+				Task: Summarize the new comments on the following GitHub issue for @{this.props.currentUser.login}.<br />
 				- What information do the new comments add to the issue?
 				- Are there any additional points added by the new comments that can lead to the resolution of the issue?<br />
 				<br />

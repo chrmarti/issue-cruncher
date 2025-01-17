@@ -64,9 +64,9 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         knownIssues.push(JSON.parse(content.toString()));
                     }
 
-                    const summary = await summarizeIssue(request, chatContext, stream, issue, commentsResponse.data, knownIssues, cancellationToken);
                     const userResponse = await octokit.rest.users.getAuthenticated();
                     const currentUser = userResponse.data;
+                    const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, commentsResponse.data, knownIssues, cancellationToken);
                     await summarizeUpdate(request, chatContext, stream, currentUser, issue, commentsResponse.data, lastReadAt, cancellationToken);
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
@@ -115,7 +115,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
     context.subscriptions.push(chatLibParticipant);
 }
 
-async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
+async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
     const knownIssue = knownIssues.find(knownIssue => knownIssue.issue.url === issue.url);
     if (knownIssue?.issue.updated_at === issue.updated_at) {
         stream.markdown(`## Existing Summary\n\n${knownIssue.summary}\n\n`);
@@ -130,6 +130,7 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const result = await renderPrompt(
         SummarizationPrompt,
         {
+            currentUser,
             issue,
             comments,
             context: chatContext,
@@ -179,6 +180,7 @@ async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.
     const result = await renderPrompt(
         UpdateSummarizationPrompt,
         {
+            currentUser,
             issue,
             comments,
             newComments,
