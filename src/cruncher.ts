@@ -55,7 +55,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         issue_number: issue.number
                     });
 
-                    stream.markdown(`Triaging issue: [#${issue.number}](${issue.html_url}) - ${issue.title} by [@${issue.user?.login}](${issue.user?.html_url})\n\n`);
+                    stream.markdown(`Reading ${issue.state} issue [${owner}/${repo}#${issue.number}](${issue.html_url}) by [@${issue.user?.login}](${issue.user?.html_url}) on ${new Date(issue.created_at).toLocaleDateString()}: ${issue.title}\n\n`);
 
                     const knownIssues: KnownIssue[] = [];
                     const files = await vscode.workspace.findFiles('*.json', undefined, 100);
@@ -281,7 +281,11 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
         try {
             for (const call of calls) {
                 const input = call.input as CloseAsDuplicateParameters;
-                stream.markdown(`### Duplicate Issue\n\n${knownIssues.find(i => i.issue.url === `https://github.com/${input.original_issue_owner}/${input.original_issue_repo}/issues/${input.original_issue_number}`)?.summary}\n\n`);
+                const duplicateURL = `https://github.com/${input.existing_issue_owner}/${input.existing_issue_repo}/issues/${input.existing_issue_number}`;
+                const duplicateIssue = knownIssues.find(i => i.issue.html_url === duplicateURL);
+                if (duplicateIssue) {
+                    stream.markdown(`### Duplicate Issue\n\n${duplicateIssue.summary}\n\n`);
+                }
                 await vscode.lm.invokeTool(call.name, { input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
             }
             return true;

@@ -142,11 +142,11 @@ export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void>
 				<br />
 				<ToolsReminder />
 				<br />
-				Task: Check if the current GitHub issue is already tracked in an existing issue and, if so, close the current issue as a duplicate of this existing original issue.<br />
-				- Is one of the existing issues sufficiently similar to the current issue to consider them duplicates?<br />
-				- Are the main points of one of the existing issues the same or very similar to the main points of the current issue?<br />
+				Task: Check if the new GitHub issue is already tracked in an existing issue and, if so, close the new issue as a duplicate of this existing original issue.<br />
+				- Are the details of one of the existing issues the same or very similar to the details of the new issue?<br />
+				- Make a convincing case for closing the new issue as a duplicate of the existing original issue.<br />
 				<br />
-				## Current Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
+				## New Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number}<br />
 				<br />
 				{this.props.summary.replace(/(^|\n)#/g, '$1#')}<br />
 				{knownIssues.map((issue, i) => (

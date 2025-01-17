@@ -211,12 +211,12 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters
 }
 
 export interface CloseAsDuplicateParameters {
-	current_issue_owner: string;
-	current_issue_repo: string;
-	current_issue_number: number;
-	original_issue_owner: string;
-	original_issue_repo: string;
-	original_issue_number: number;
+	new_issue_owner: string;
+	new_issue_repo: string;
+	new_issue_number: number;
+	existing_issue_owner: string;
+	existing_issue_repo: string;
+	existing_issue_number: number;
 }
 
 class CloseAsDuplicateTool implements vscode.LanguageModelTool<CloseAsDuplicateParameters> {
@@ -224,41 +224,41 @@ class CloseAsDuplicateTool implements vscode.LanguageModelTool<CloseAsDuplicateP
 		options: vscode.LanguageModelToolInvocationOptions<CloseAsDuplicateParameters>,
 		_token: vscode.CancellationToken
 	) {
-		const { current_issue_owner, current_issue_repo, current_issue_number, original_issue_owner, original_issue_repo, original_issue_number } = options.input;
+		const { new_issue_owner, new_issue_repo, new_issue_number, existing_issue_owner, existing_issue_repo, existing_issue_number } = options.input;
 
 		const octokit = new Octokit({
 			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
 		});
 		await octokit.rest.issues.createComment({
-			owner: current_issue_owner,
-			repo: current_issue_repo,
-			issue_number: current_issue_number,
-			body: `Duplicate of ${original_issue_owner}/${original_issue_repo}#${original_issue_number}`
+			owner: new_issue_owner,
+			repo: new_issue_repo,
+			issue_number: new_issue_number,
+			body: `Duplicate of ${existing_issue_owner}/${existing_issue_repo}#${existing_issue_number}`
 		});
 		await octokit.rest.issues.update({
-			owner: current_issue_owner,
-			repo: current_issue_repo,
-			issue_number: current_issue_number,
+			owner: new_issue_owner,
+			repo: new_issue_repo,
+			issue_number: new_issue_number,
 			state: 'closed'
 		});
 
-		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Closed issue \`${current_issue_owner}/${current_issue_repo}#${current_issue_number}\` as a duplicate of \`${original_issue_owner}/${original_issue_repo}#${original_issue_number}\``)]);
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Closed issue \`${new_issue_owner}/${new_issue_repo}#${new_issue_number}\` as a duplicate of \`${existing_issue_owner}/${existing_issue_repo}#${existing_issue_number}\``)]);
 	}
 
 	async prepareInvocation(
 		options: vscode.LanguageModelToolInvocationPrepareOptions<CloseAsDuplicateParameters>,
 		_token: vscode.CancellationToken
 	) {
-		const { current_issue_owner, current_issue_repo, current_issue_number, original_issue_owner, original_issue_repo, original_issue_number } = options.input;
+		const { new_issue_owner, new_issue_repo, new_issue_number, existing_issue_owner, existing_issue_repo, existing_issue_number } = options.input;
 		const confirmationMessages = {
 			title: 'Close issue as duplicate',
 			message: new vscode.MarkdownString(
-				`Close issue [${current_issue_owner}/${current_issue_repo}#${current_issue_number}](https://github.com/${current_issue_owner}/${current_issue_repo}/issues/${current_issue_number}) as a duplicate of [${original_issue_owner}/${original_issue_repo}#${original_issue_number}](https://github.com/${original_issue_owner}/${original_issue_repo}/issues/${original_issue_number})?`
+				`Close issue [${new_issue_owner}/${new_issue_repo}#${new_issue_number}](https://github.com/${new_issue_owner}/${new_issue_repo}/issues/${new_issue_number}) as a duplicate of [${existing_issue_owner}/${existing_issue_repo}#${existing_issue_number}](https://github.com/${existing_issue_owner}/${existing_issue_repo}/issues/${existing_issue_number})?`
 			),
 		};
 
 		return {
-			invocationMessage: `Closing issue \`${current_issue_owner}/${current_issue_repo}#${current_issue_number}\` as a duplicate of \`${original_issue_owner}/${original_issue_repo}#${original_issue_number}\``,
+			invocationMessage: `Closing issue \`${new_issue_owner}/${new_issue_repo}#${new_issue_number}\` as a duplicate of \`${existing_issue_owner}/${existing_issue_repo}#${existing_issue_number}\``,
 			confirmationMessages,
 		};
 	}
