@@ -64,12 +64,15 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     const currentUser = userResponse.data;
                     await summarizeUpdate(request, chatContext, stream, currentUser, issue, commentsResponse.data, lastReadAt, cancellationToken);
 
-                    let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
-                    closed ||= await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
-                    if (!closed) {
-                        await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
-                        await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                    if (issue.assignees?.find(a => a.login === currentUser.login)) {
+                        let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
+                        closed ||= await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
+                        if (!closed) {
+                            await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                            await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                        }
                     }
+
                     if (notification) {
                         await markAsRead(request, chatContext, stream, notification, cancellationToken);
                     }
