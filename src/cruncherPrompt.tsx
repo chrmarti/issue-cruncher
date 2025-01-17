@@ -109,6 +109,8 @@ export class CheckResolutionPrompt extends PromptElement<CheckResolutionProps, v
 			<UserMessage>
 				# Check for Issue Resolution<br />
 				<br />
+				<ToolsReminder />
+				<br />
 				Task: Check if the current GitHub issue has a resolution and can be closed.<br />
 				- If the issue can be closed, close it with the comment "Closing as resolved. Thanks!".<br />
 				<br />
@@ -135,6 +137,8 @@ export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void>
 		return (
 			<UserMessage>
 				# Find Duplicate Issue<br />
+				<br />
+				<ToolsReminder />
 				<br />
 				Task: Check if the current GitHub issue is already tracked in an existing issue and, if so, close the current issue as a duplicate of this existing original issue.<br />
 				- Is one of the existing issues sufficiently similar to the current issue to consider them duplicates?<br />
@@ -170,6 +174,8 @@ export class InfoNeededLabelPrompt extends PromptElement<InfoNeededLabelProps, v
 			<UserMessage>
 				# Add {this.props.infoNeededLabel} Label If Needed<br />
 				<br />
+				<ToolsReminder />
+				<br />
 				Task: Check if the GitHub issue summary indicates that more information is needed to resolve the issue and, if so, add the {this.props.infoNeededLabel} label.<br />
 				- E.g., information asked for by a project member.<br />
 				<br />
@@ -198,6 +204,8 @@ export class TypeLabelPrompt extends PromptElement<TypeLabelProps, void> {
 			<UserMessage>
 				# Add Type Label to GitHub Issue<br />
 				<br />
+				<ToolsReminder />
+				<br />
 				Task: Add one of the labels {typeLabelsString} to the issue.<br />
 				{typeLabels.map(label => (
 					<>- `{label}`: {this.props.typeLabels[label]}<br /></>
@@ -223,8 +231,24 @@ export class MarkReadPrompt extends PromptElement<MarkReadProps, void> {
 			<UserMessage>
 				# Mark Notification As Read<br />
 				<br />
+				<ToolsReminder />
+				<br />
 				Task: Mark the notification with id {this.props.notification.id} as read.<br />
 			</UserMessage>
 		);
+	}
+}
+
+class ToolsReminder extends PromptElement {
+	render(_state: void, _sizing: PromptSizing) {
+		return (<>
+			Remember that you can call multiple tools in one response.<br />
+			When using a tool, follow the json schema very carefully and make sure to include ALL required properties.<br />
+			Always output valid JSON when using a tool.<br />
+			If a tool exists to do a task, use the tool instead of asking the user to manually take an action.<br />
+			If you say that you will take an action, then go ahead and use the tool to do it. No need to ask permission.<br />
+			Never use multi_tool_use.parallel or any tool that does not exist. Use tools using the proper procedure, DO NOT write out a json codeblock with the tool inputs.<br />
+			Never say the name of a tool to a user.<br />
+		</>);
 	}
 }
