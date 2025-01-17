@@ -49,13 +49,20 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                 if (issue) {
                     const [owner, repo] = issue.repository_url.split('/').slice(-2);
-                    const commentsResponse = await octokit.rest.issues.listComments({
+                    const comments: IssueComment[] = await octokit.paginate(octokit.issues.listComments, {
                         owner,
                         repo,
-                        issue_number: issue.number
-                    });
+                        issue_number: issue.number,
+                      });
 
                     stream.markdown(`Reading ${issue.state} issue [${owner}/${repo}#${issue.number}](${issue.html_url}) by [@${issue.user?.login}](${issue.user?.html_url}) on ${new Date(issue.created_at).toLocaleDateString()}: ${issue.title}\n\n`);
+
+                    const newComments = lastReadAt ? comments.filter(comment => lastReadAt.localeCompare(comment.created_at) <= 0) : [];
+                    if (notification && lastReadAt && !newComments.length) {
+                        stream.markdown(`No new comments.\n\n`);
+                        await markAsRead(request, chatContext, stream, notification, cancellationToken);
+                        return;
+                    }
 
                     const knownIssues: KnownIssue[] = [];
                     const files = await vscode.workspace.findFiles('*.json', undefined, 100);
@@ -66,8 +73,8 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     const userResponse = await octokit.rest.users.getAuthenticated();
                     const currentUser = userResponse.data;
-                    const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, commentsResponse.data, knownIssues, cancellationToken);
-                    await summarizeUpdate(request, chatContext, stream, currentUser, issue, commentsResponse.data, lastReadAt, cancellationToken);
+                    const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
+                    await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
                         let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
@@ -159,19 +166,11 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     return summary;
 }
 
-async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], lastReadAt: string | undefined, cancellationToken: vscode.CancellationToken) {
-    if (!lastReadAt) {
+async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], newComments: IssueComment[], cancellationToken: vscode.CancellationToken) {
+    if (!newComments.length) {
         return;
     }
     stream.markdown(`## Summarizing Update\n\n`);
-    const newComments = comments.filter(comment =>
-        comment.user?.login !== currentUser.login &&
-        lastReadAt.localeCompare(comment.created_at) <= 0
-    );
-    if (!newComments.length) {
-        stream.markdown(`No new comments.\n\n`);
-        return;
-    }
 
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Summarizing update for @cruncher',
