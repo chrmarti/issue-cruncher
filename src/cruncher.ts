@@ -8,6 +8,11 @@ import { CloseAsDuplicateParameters } from './tools';
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
         if (request.command === 'next') {
+            if (!vscode.workspace.workspaceFolders?.[0]) {
+                stream.markdown('No workspace folder open for storing summaries.');
+                return;
+            }
+
             stream.progress('Fetching the next issue...');
             try {
                 const octokit = new Octokit({
