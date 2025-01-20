@@ -5,6 +5,8 @@ import { renderPrompt } from '@vscode/prompt-tsx';
 import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
+const enableFindDuplicateIssue = false;
+
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
         if (request.command === 'next') {
@@ -85,7 +87,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
                         let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
-                        closed ||= await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
+                        closed ||= enableFindDuplicateIssue && await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                         if (!closed) {
                             await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                             await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
@@ -305,12 +307,12 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
 }
 
 async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
-    stream.markdown(`## Info Needed\n\n`);
     const infoNeededLabel = 'info-needed';
     if (issue.labels.some(label => (typeof label === 'string' ? label : label.name) === infoNeededLabel)) {
-        stream.markdown(`Issue already has ${infoNeededLabel} label.\n\n`);
         return;
     }
+
+    stream.markdown(`## Info Needed\n\n`);
 
     const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_addLabelToIssue');
     const options: vscode.LanguageModelChatRequestOptions = {
@@ -350,7 +352,6 @@ async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vs
 }
 
 async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
-    stream.markdown(`## Type Label\n\n`);
     const typeLabels = {
         bug: 'A problem or error in the software',
         'feature-request': 'A request for a new feature or enhancement',
@@ -361,9 +362,10 @@ async function typeLabelIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const existingTypeLabel = issue.labels.map(label => typeof label === 'string' ? label : label.name)
         .find(label => label && label in typeLabels);
     if (existingTypeLabel) {
-        stream.markdown(`Issue already has type label: ${existingTypeLabel}\n\n`);
         return;
     }
+
+    stream.markdown(`## Type Label\n\n`);
 
     const tools = vscode.lm.tools.filter(tool => tool.name === 'chat-tools-sample_addLabelToIssue');
     const options: vscode.LanguageModelChatRequestOptions = {
