@@ -42,6 +42,13 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                             });
                             issue = response.data;
                             lastReadAt = notification.last_read_at || undefined;
+                            if (!lastReadAt && notification.subject.latest_comment_url) {
+                                const segments = notification.subject.latest_comment_url.split('/');
+                                if (segments[segments.length - 2] === 'comments') {
+                                    const commentResponse = await octokit.rest.issues.getComment({ owner: segments[segments.length - 5], repo: segments[segments.length - 4], comment_id: parseInt(segments[segments.length - 1]) });
+                                    lastReadAt = commentResponse.data.created_at;
+                                }
+                            }
                             break outerLoop;
                         }
                     }
