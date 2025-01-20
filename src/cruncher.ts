@@ -61,7 +61,14 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         issue_number: issue.number,
                       });
 
-                    stream.markdown(`Reading ${issue.state} issue [${owner}/${repo}#${issue.number}](${issue.html_url}) by [@${issue.user?.login}](${issue.user?.html_url}) on ${new Date(issue.created_at).toLocaleDateString()}: ${issue.title}\n\n`);
+                    stream.markdown(`- Issue: [${owner}/${repo}#${issue.number}](${issue.html_url})
+- State: ${issue.state}
+- Assignee: ${issue.assignees?.map(assignee => `[@${assignee.login}](${assignee.html_url})`).join(', ') || 'None'}
+- New Comment: ${newCommentCreatedAt ? new Date(newCommentCreatedAt).toLocaleDateString() : 'None'}
+- Title: ${issue.title}
+- Author: [@${issue.user?.login}](${issue.user?.html_url})
+- Created: ${new Date(issue.created_at).toLocaleDateString()}
+\n`);
 
                     const newComments = newCommentCreatedAt ? comments.filter(comment => newCommentCreatedAt.localeCompare(comment.created_at) <= 0) : [];
                     if (notification && newCommentCreatedAt && !newComments.length) {
@@ -79,8 +86,8 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     const userResponse = await octokit.rest.users.getAuthenticated();
                     const currentUser = userResponse.data;
-                    const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
                     await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
+                    const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
                         let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);

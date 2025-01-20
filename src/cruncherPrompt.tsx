@@ -85,7 +85,7 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 				<br />
 				State: {this.props.issue.state}{this.props.issue.state_reason ? <> ({this.props.issue.state_reason})</> : ''}<br />
 				<br />
-				{this.props.comments.map(comment => (
+				{this.props.newComments.map(comment => (
 					<>
 						### {this.props.newComments.indexOf(comment) !== -1 ? 'New' : 'Old'} Comment by @{comment.user?.login}{teamAssociations.includes(comment.author_association) ? <> (project member)</> : <> (community member)</>}<br />
 						<br />
