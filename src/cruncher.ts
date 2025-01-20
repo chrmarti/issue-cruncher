@@ -30,7 +30,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                 let issue: SearchIssue | undefined;
                 let notification: Notification | undefined;
-                let lastReadAt: string | undefined;
+                let newCommentCreatedAt: string | undefined;
                 const iterator = octokit.paginate.iterator(octokit.rest.activity.listNotificationsForAuthenticatedUser);
                 outerLoop:
                 for await (const res of iterator) {
@@ -43,13 +43,10 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                                 issue_number: parseInt(notification.subject.url.split('/').pop()!),
                             });
                             issue = response.data;
-                            lastReadAt = notification.last_read_at || undefined;
-                            if (!lastReadAt && notification.subject.latest_comment_url) {
-                                const segments = notification.subject.latest_comment_url.split('/');
-                                if (segments[segments.length - 2] === 'comments') {
-                                    const commentResponse = await octokit.rest.issues.getComment({ owner: segments[segments.length - 5], repo: segments[segments.length - 4], comment_id: parseInt(segments[segments.length - 1]) });
-                                    lastReadAt = commentResponse.data.created_at;
-                                }
+                            const segments = notification.subject.latest_comment_url.split('/');
+                            if (segments[segments.length - 2] === 'comments') {
+                                const commentResponse = await octokit.rest.issues.getComment({ owner: segments[segments.length - 5], repo: segments[segments.length - 4], comment_id: parseInt(segments[segments.length - 1]) });
+                                newCommentCreatedAt = commentResponse.data.created_at;
                             }
                             break outerLoop;
                         }
@@ -66,8 +63,8 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                     stream.markdown(`Reading ${issue.state} issue [${owner}/${repo}#${issue.number}](${issue.html_url}) by [@${issue.user?.login}](${issue.user?.html_url}) on ${new Date(issue.created_at).toLocaleDateString()}: ${issue.title}\n\n`);
 
-                    const newComments = lastReadAt ? comments.filter(comment => lastReadAt.localeCompare(comment.created_at) <= 0) : [];
-                    if (notification && lastReadAt && !newComments.length) {
+                    const newComments = newCommentCreatedAt ? comments.filter(comment => newCommentCreatedAt.localeCompare(comment.created_at) <= 0) : [];
+                    if (notification && newCommentCreatedAt && !newComments.length) {
                         stream.markdown(`No new comments.\n\n`);
                         await markAsRead(request, chatContext, stream, notification, cancellationToken);
                         return;
