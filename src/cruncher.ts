@@ -54,6 +54,9 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                 }
 
                 if (issue) {
+                    const userResponse = await octokit.rest.users.getAuthenticated();
+                    const currentUser = userResponse.data;
+
                     const [owner, repo] = issue.repository_url.split('/').slice(-2);
                     const comments: IssueComment[] = await octokit.paginate(octokit.issues.listComments, {
                         owner,
@@ -61,17 +64,21 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         issue_number: issue.number,
                       });
 
-                    stream.markdown(`- Issue: [${owner}/${repo}#${issue.number}](${issue.html_url})
+                    const newComments = newCommentCreatedAt ? comments.filter(comment =>
+                        comment.user?.login !== currentUser.login &&
+                        newCommentCreatedAt.localeCompare(comment.created_at) <= 0
+                    ) : [];
+
+                    stream.markdown(`Issue: [${owner}/${repo}#${issue.number}](${issue.html_url})
 - State: ${issue.state}
 - Assignee: ${issue.assignees?.map(assignee => `[@${assignee.login}](${assignee.html_url})`).join(', ') || 'None'}
-- New Comment: ${newCommentCreatedAt ? new Date(newCommentCreatedAt).toLocaleDateString() : 'None'}
+- New Comment: ${newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : 'None'}
 - Title: ${issue.title}
 - Author: [@${issue.user?.login}](${issue.user?.html_url})
 - Created: ${new Date(issue.created_at).toLocaleDateString()}
 \n`);
 
-                    const newComments = newCommentCreatedAt ? comments.filter(comment => newCommentCreatedAt.localeCompare(comment.created_at) <= 0) : [];
-                    if (notification && newCommentCreatedAt && !newComments.length) {
+                    if (notification && !newComments.length) {
                         stream.markdown(`No new comments.\n\n`);
                         await markAsRead(request, chatContext, stream, notification, cancellationToken);
                         return;
@@ -84,8 +91,6 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         knownIssues.push(JSON.parse(content.toString()));
                     }
 
-                    const userResponse = await octokit.rest.users.getAuthenticated();
-                    const currentUser = userResponse.data;
                     await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
                     const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
 
