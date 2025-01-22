@@ -5,6 +5,7 @@ import { renderPrompt } from '@vscode/prompt-tsx';
 import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
+const enableCheckResolution = false;
 const enableFindDuplicateIssue = false;
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
@@ -69,16 +70,18 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         newCommentCreatedAt.localeCompare(comment.created_at) <= 0
                     ) : [];
 
-                    stream.markdown(`Issue: [${owner}/${repo}#${issue.number}](${issue.html_url})
-- State: ${issue.state}
-- Assignee: ${issue.assignees?.map(assignee => `[@${assignee.login}](${assignee.html_url})`).join(', ') || 'None'}
-- New Comment: ${newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : 'None'}
-- Title: ${issue.title}
-- Author: [@${issue.user?.login}](${issue.user?.html_url})
-- Created: ${new Date(issue.created_at).toLocaleDateString()}
+                    stream.markdown(`> Issue: [${owner}/${repo}#${issue.number}](${issue.html_url})
+> - State: ${issue.state}
+> - Labels: ${issue.labels?.map(label => typeof label === 'string' ? label : label.name).join(', ') || '-'}
+> - Assignee: ${issue.assignees?.map(assignee => `[@${assignee.login}](${assignee.html_url})`).join(', ') || '-'}
+> - New Comment: ${newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : '-'}
+> - Title: ${issue.title}
+> - Author: [@${issue.user?.login}](${issue.user?.html_url})
+> - Created: ${new Date(issue.created_at).toLocaleDateString()}
 \n`);
 
-                    if (notification && !newComments.length) {
+                    // Not new and no new comments?
+                    if (notification?.last_read_at && !newComments.length) {
                         stream.markdown(`No new comments.\n\n`);
                         await markAsRead(request, chatContext, stream, notification, cancellationToken);
                         return;
@@ -95,7 +98,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
-                        let closed = await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
+                        let closed = enableCheckResolution && await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
                         closed ||= enableFindDuplicateIssue && await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                         if (!closed) {
                             await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
@@ -143,10 +146,10 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
     const knownIssue = knownIssues.find(knownIssue => knownIssue.issue.url === issue.url);
     if (knownIssue?.issue.updated_at === issue.updated_at) {
-        stream.markdown(`## Existing Summary\n\n${knownIssue.summary}\n\n`);
+        stream.markdown(`## Summary\n\n${knownIssue.summary}\n\n`);
         return knownIssue.summary;
     }
-    stream.markdown(`## Computing Summary\n\n`);
+    stream.markdown(`## Summary\n\n`);
 
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Summarizing issue for @cruncher',
