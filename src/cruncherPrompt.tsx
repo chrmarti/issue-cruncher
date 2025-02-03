@@ -193,7 +193,7 @@ export class CustomInstructionsPrompt extends PromptElement<CustomInstructionsPr
 				<br />
 				Issue: {owner}/{repo}#{issue.number}<br />
 				- State: {issue.state}<br />
-				- Labels: {issue.labels?.map(label => typeof label === 'string' ? label : label.name).join(', ') || '-'}<br />
+				- Labels: {issue.labels?.map(label => typeof label === 'string' ? label : label.name).map(label => `\`${label}\``).join(', ') || '-'}<br />
 				- Assignee: {issue.assignees?.map(assignee => `@${assignee.login}`).join(', ') || '-'}<br />
 				- New Comment: {newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : '-'}<br />
 				- Title: {issue.title}<br />

@@ -67,14 +67,16 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         issue_number: issue.number,
                       });
 
-                    const newComments = newCommentCreatedAt ? comments.filter(comment =>
+                    const lastReadAt = notification?.last_read_at;
+                    const since = lastReadAt && newCommentCreatedAt ? (lastReadAt < newCommentCreatedAt ? lastReadAt : newCommentCreatedAt) : (lastReadAt || newCommentCreatedAt);
+                    const newComments = since ? comments.filter(comment =>
                         comment.user?.login !== currentUser.login &&
-                        newCommentCreatedAt.localeCompare(comment.created_at) <= 0
+                        since.localeCompare(comment.created_at) <= 0
                     ) : [];
 
                     stream.markdown(`> Issue: [${owner}/${repo}#${issue.number}](${issue.html_url})
 > - State: ${issue.state}
-> - Labels: ${issue.labels?.map(label => typeof label === 'string' ? label : label.name).join(', ') || '-'}
+> - Labels: ${issue.labels?.map(label => typeof label === 'string' ? label : label.name).map(label => `\`${label}\``).join(', ') || '-'}
 > - Assignee: ${issue.assignees?.map(assignee => `[@${assignee.login}](${assignee.html_url})`).join(', ') || '-'}
 > - New Comment: ${newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : '-'}
 > - Title: ${issue.title}
@@ -82,11 +84,18 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 > - Created: ${new Date(issue.created_at).toLocaleDateString()}
 \n`);
 
-                    // Not new and no new comments?
-                    if (notification?.last_read_at && !newComments.length) {
-                        stream.markdown(`No new comments.\n\n`);
-                        await markAsRead(request, chatContext, stream, notification, cancellationToken);
-                        return;
+                    // Not entirely new issue?
+                    if (notification?.last_read_at) {
+                        if (!newComments.length) {
+                            stream.markdown(`No new comments.\n\n`);
+                            await markAsRead(request, chatContext, stream, notification, cancellationToken);
+                            return;
+                        }
+                        if (newComments.every(comment => comment.user?.type === 'Bot')) {
+                            stream.markdown(`Only bot comments.\n\n`);
+                            await markAsRead(request, chatContext, stream, notification, cancellationToken);
+                            return;
+                        }
                     }
 
                     const knownIssues: KnownIssue[] = [];
