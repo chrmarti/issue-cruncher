@@ -162,6 +162,60 @@ export class FindDuplicatePrompt extends PromptElement<FindDuplicateProps, void>
 	}
 }
 
+export interface CustomInstructionsProps extends BasePromptElementProps {
+	currentUser: CurrentUser;
+	instructions: string;
+	issue: SearchIssue;
+	newComments: IssueComment[];
+	summary: string;
+	updateSummary: string | undefined;
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class CustomInstructionsPrompt extends PromptElement<CustomInstructionsProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		const { issue, newComments } = this.props;
+		const [owner, repo] = issue.repository_url.split('/').slice(-2);
+		return (
+			<UserMessage>
+				# Handle GitHub Issue<br />
+				<br />
+				<ToolsReminder />
+				<br />
+				Task: Apply to following instructions to the below issue on behalf of @{this.props.currentUser.login}. Use the available tools when appropriate.<br />
+				<br />
+				## Instructions<br />
+				<br />
+				{this.props.instructions.replace(/(^|\n)#/g, '$1###')}<br />
+				<br />
+				## Issue Overview<br />
+				<br />
+				Issue: {owner}/{repo}#{issue.number}<br />
+				- State: {issue.state}<br />
+				- Labels: {issue.labels?.map(label => typeof label === 'string' ? label : label.name).join(', ') || '-'}<br />
+				- Assignee: {issue.assignees?.map(assignee => `@${assignee.login}`).join(', ') || '-'}<br />
+				- New Comment: {newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : '-'}<br />
+				- Title: {issue.title}<br />
+				- Author: @{issue.user?.login}<br />
+				- Created: {new Date(issue.created_at).toLocaleDateString()}<br />
+				{this.props.updateSummary && (
+					<>
+						<br />
+						## Issue Update Summary<br />
+						<br />
+						{this.props.updateSummary.replace(/(^|\n)#/g, '$1###')}<br />
+					</>
+				)}
+				<br />
+				## Issue Summary<br />
+				<br />
+				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
+			</UserMessage>
+		);
+	}
+}
+
 export interface InfoNeededLabelProps extends BasePromptElementProps {
 	infoNeededLabel: string;
 	issue: SearchIssue;

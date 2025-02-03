@@ -2,11 +2,13 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt, CustomInstructionsPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
 const enableCheckResolution = false;
 const enableFindDuplicateIssue = false;
+const enableInfoNeededLabel = false;
+const enableTypeLabel = false;
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
@@ -94,15 +96,20 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         knownIssues.push(JSON.parse(content.toString()));
                     }
 
-                    await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
+                    const updateSummary = await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
                     const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
                         let closed = enableCheckResolution && await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
                         closed ||= enableFindDuplicateIssue && await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                         if (!closed) {
-                            await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
-                            await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                            await applyCustomInstructions(request, chatContext, stream, currentUser, issue, newComments, summary, updateSummary, cancellationToken);
+                            if (enableInfoNeededLabel) {
+                                await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                            }
+                            if (enableTypeLabel) {
+                                await typeLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
+                            }
                         }
                     }
 
@@ -216,8 +223,9 @@ async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.
     });
     const response = await model.sendRequest(result.messages, options, cancellationToken);
 
-    await readResponse(response, stream);
+    const { text: summary } = await readResponse(response, stream);
     stream.markdown('\n\n');
+    return summary;
 }
 
 async function checkResolution(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
@@ -316,6 +324,64 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
         }
     }
     return false;
+}
+
+async function applyCustomInstructions(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, newComments: IssueComment[], summary: string, updateSummary: string | undefined, cancellationToken: vscode.CancellationToken) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return;
+    }
+    const instructionsUri = vscode.Uri.joinPath(workspaceFolder.uri, 'issue_triage.md');
+    let instructions;
+    try {
+        instructions = await vscode.workspace.fs.readFile(instructionsUri);
+    } catch (error) {
+        if (error instanceof vscode.FileSystemError && error.code !== 'FileNotFound') {
+            stream.markdown(`Error reading instructions file: ${error.message}`);
+        }
+        return;
+    }
+
+    stream.markdown(`## Applying Custom Instructions\n\n`);
+
+    const tools = vscode.lm.tools.filter(tool => ['chat-tools-sample_addLabelToIssue', 'chat-tools-sample_closeIssue'].includes(tool.name));
+    const options: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Applying custom instructions with @cruncher',
+        tools,
+    };
+    const model = request.model;
+    const result = await renderPrompt(
+        CustomInstructionsPrompt,
+        {
+            currentUser,
+            instructions: instructions.toString(),
+            issue,
+            newComments,
+            summary,
+            updateSummary,
+            context: chatContext,
+            request,
+        },
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model);
+    result.references.forEach(ref => {
+        if (ref.anchor instanceof vscode.Uri || ref.anchor instanceof vscode.Location) {
+            stream.reference(ref.anchor);
+        }
+    });
+    const response = await model.sendRequest(result.messages, options, cancellationToken);
+
+    const { calls } = await readResponse(response, stream);
+    stream.markdown('\n\n');
+    try {
+        for (const call of calls) {
+            await vscode.lm.invokeTool(call.name, { input: call.input, toolInvocationToken: request.toolInvocationToken }, cancellationToken);
+        }
+    } catch (err) {
+        if (err?.name !== 'Canceled') {
+            throw err;
+        }
+    }
 }
 
 async function infoNeededLabelIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, issue: SearchIssue, summary: string, cancellationToken: vscode.CancellationToken) {
