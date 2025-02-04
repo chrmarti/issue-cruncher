@@ -170,7 +170,7 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Summarizing issue for @cruncher',
     };
-    const model = request.model;
+    const model = await getFastModel(request.model);
     const result = await renderPrompt(
         SummarizationPrompt,
         {
@@ -212,7 +212,7 @@ async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Summarizing update for @cruncher',
     };
-    const model = request.model;
+    const model = await getFastModel(request.model);
     const result = await renderPrompt(
         UpdateSummarizationPrompt,
         {
@@ -498,7 +498,7 @@ async function markAsRead(request: vscode.ChatRequest, chatContext: vscode.ChatC
         justification: 'Marking notification as read for @cruncher',
         tools,
     };
-    const model = request.model;
+    const model = await getFastModel(request.model);
     const result = await renderPrompt(
         MarkReadPrompt,
         {
@@ -541,4 +541,16 @@ async function readResponse(response: vscode.LanguageModelChatResponse, stream: 
         }
     }
     return { text, calls };
+}
+
+async function getFastModel(model: vscode.LanguageModelChat) {
+    if (model.vendor === 'copilot' && /^o\d+/.test(model.family)) {
+        // The o1 models do not currently support tools
+        const models = await vscode.lm.selectChatModels({
+            vendor: 'copilot',
+            family: 'gpt-4o'
+        });
+        return models[0] ?? model;
+    }
+    return model;
 }
