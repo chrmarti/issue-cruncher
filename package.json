@@ -160,7 +160,7 @@
 					"chat-tools-sample"
 				],
 				"displayName": "Add Label to Issue",
-				"modelDescription": "Add a label to a GitHub issue",
+				"modelDescription": "Add a label and an optional comment to a GitHub issue",
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -179,6 +179,10 @@
 						"label": {
 							"type": "string",
 							"description": "The label to add to the issue"
+						},
+						"comment": {
+							"type": "string",
+							"description": "An optional comment to add"
 						}
 					},
 					"required": ["owner", "repo", "issue_number", "label"]

@@ -169,6 +169,7 @@ interface AddLabelParameters {
 	repo: string;
 	issue_number: number;
 	label: string;
+	comment?: string;
 }
 
 class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters> {
@@ -176,11 +177,19 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters
 		options: vscode.LanguageModelToolInvocationOptions<AddLabelParameters>,
 		_token: vscode.CancellationToken
 	) {
-		const { owner, repo, issue_number, label } = options.input;
+		const { owner, repo, issue_number, label, comment } = options.input;
 
 		const octokit = new Octokit({
 			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
 		});
+		if (comment) {
+			await octokit.rest.issues.createComment({
+				owner,
+				repo,
+				issue_number,
+				body: comment
+			});
+		}
 		await octokit.rest.issues.addLabels({
 			owner,
 			repo,
@@ -188,23 +197,23 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters
 			labels: [label]
 		});
 
-		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Added label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\``)]);
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Added label \`${label}\`${comment ? ` and comment "${comment}"` : ''} to issue \`${owner}/${repo}#${issue_number}\``)]);
 	}
 
 	async prepareInvocation(
 		options: vscode.LanguageModelToolInvocationPrepareOptions<AddLabelParameters>,
 		_token: vscode.CancellationToken
 	) {
-		const { owner, repo, issue_number, label } = options.input;
+		const { owner, repo, issue_number, label, comment } = options.input;
 		const confirmationMessages = {
 			title: 'Add label to issue',
 			message: new vscode.MarkdownString(
-				`Add the label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\`?`
+				`Add the label \`${label}\`${comment ? ` and comment "${comment}"` : ''} to issue \`${owner}/${repo}#${issue_number}\`?`
 			),
 		};
 
 		return {
-			invocationMessage: `Adding label \`${label}\` to issue \`${owner}/${repo}#${issue_number}\``,
+			invocationMessage: `Adding label \`${label}\`${comment ? ` and comment "${comment}"` : ''} to issue \`${owner}/${repo}#${issue_number}\``,
 			confirmationMessages,
 		};
 	}
