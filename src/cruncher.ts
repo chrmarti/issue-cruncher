@@ -353,7 +353,11 @@ async function applyCustomInstructions(request: vscode.ChatRequest, chatContext:
 
     stream.markdown(`## Applying Custom Instructions\n\n`);
 
-    const tools = vscode.lm.tools.filter(tool => ['chat-tools-sample_addLabelToIssue', 'chat-tools-sample_closeIssue'].includes(tool.name));
+    const tools = vscode.lm.tools.filter(tool => [
+        'chat-tools-sample_addLabelToIssue',
+        'chat-tools-sample_closeIssue',
+        'chat-tools-sample_reassignIssue',
+    ].includes(tool.name));
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Applying custom instructions with @cruncher',
         tools,

@@ -6,6 +6,7 @@ export function registerChatTools(context: vscode.ExtensionContext) {
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_findFiles', new FindFilesTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_runInTerminal', new RunInTerminalTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_addLabelToIssue', new AddLabelToIssueTool()));
+	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_reassignIssue', new ReassignIssueTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_closeAsDuplicate', new CloseAsDuplicateTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_closeIssue', new CloseIssueTool()));
 	context.subscriptions.push(vscode.lm.registerTool('chat-tools-sample_markNotificationRead', new MarkReadTool()));
@@ -214,6 +215,73 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters
 
 		return {
 			invocationMessage: `Adding label \`${label}\`${comment ? ` and comment "${comment}"` : ''} to issue \`${owner}/${repo}#${issue_number}\``,
+			confirmationMessages,
+		};
+	}
+}
+
+
+interface ReassignParameters {
+	owner: string;
+	repo: string;
+	issue_number: number;
+	old_owner?: string;
+	new_owner: string;
+	remove_label?: string;
+}
+
+class ReassignIssueTool implements vscode.LanguageModelTool<ReassignParameters> {
+	async invoke(
+		options: vscode.LanguageModelToolInvocationOptions<ReassignParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { owner, repo, issue_number, old_owner, new_owner, remove_label } = options.input;
+
+		const octokit = new Octokit({
+			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+		});
+		if (old_owner) {
+			await octokit.rest.issues.removeAssignees({
+				owner,
+				repo,
+				issue_number,
+				assignees: [old_owner]
+			});
+		}
+		if (new_owner) {
+			await octokit.rest.issues.addAssignees({
+				owner,
+				repo,
+				issue_number,
+				assignees: [new_owner]
+			});
+		}
+		if (remove_label) {
+			await octokit.rest.issues.removeLabel({
+				owner,
+				repo,
+				issue_number,
+				name: remove_label
+			});
+		}
+
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Reassigned issue \`${owner}/${repo}#${issue_number}\` to \`@${new_owner}\``)]);
+	}
+
+	async prepareInvocation(
+		options: vscode.LanguageModelToolInvocationPrepareOptions<ReassignParameters>,
+		_token: vscode.CancellationToken
+	) {
+		const { owner, repo, issue_number, old_owner, new_owner, remove_label } = options.input;
+		const confirmationMessages = {
+			title: 'Reassign issue',
+			message: new vscode.MarkdownString(
+				`Reassign issue \`${owner}/${repo}#${issue_number}\`${old_owner ? ` from \`@${old_owner}\`` : ''} to \`@${new_owner}\`${remove_label ? ` and remove label \`${remove_label}\`` : ''}?`
+			),
+		};
+
+		return {
+			invocationMessage: `Reassigning issue \`${owner}/${repo}#${issue_number}\`${old_owner ? ` from \`@${old_owner}\`` : ''} to \`@${new_owner}\`${remove_label ? ` and removing label \`${remove_label}\`` : ''}`,
 			confirmationMessages,
 		};
 	}
