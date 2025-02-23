@@ -20,43 +20,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
             stream.progress('Fetching the next issue...');
             try {
-                const octokit = new Octokit({
-                    auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
-                });
-                // const response = await octokit.rest.search.issuesAndPullRequests({
-                //     q: 'repo:devcontainers/cli is:issue is:open -label:bug -label:feature-request -label:question -label:info-needed -label:under-discussion -label:debt -label:upstream -label:polish',
-                //     sort: 'created',
-                //     order: 'desc',
-                //     per_page: 1
-                // });
-                // const issue = response.data.items[0];
-
-                let issue: SearchIssue | undefined;
-                let notification: Notification | undefined;
-                let newCommentCreatedAt: string | undefined;
-                const iterator = octokit.paginate.iterator(octokit.rest.activity.listNotificationsForAuthenticatedUser);
-                outerLoop:
-                for await (const res of iterator) {
-                    for (const current of res.data) {
-                        if (current.subject.type === 'Issue') {
-                            notification = current;
-                            const response = await octokit.rest.issues.get({
-                                owner: notification.repository.owner.login,
-                                repo: notification.repository.name,
-                                issue_number: parseInt(notification.subject.url.split('/').pop()!),
-                            });
-                            issue = response.data;
-                            const segments = notification.subject.latest_comment_url.split('/');
-                            if (segments[segments.length - 2] === 'comments') {
-                                const commentResponse = await octokit.rest.issues.getComment({ owner: segments[segments.length - 5], repo: segments[segments.length - 4], comment_id: parseInt(segments[segments.length - 1]) });
-                                newCommentCreatedAt = commentResponse.data.created_at;
-                            }
-                            break outerLoop;
-                        }
-                    }
-                }
-
-                if (issue) {
+                for await (const { octokit, issue, notification, newCommentCreatedAt } of fetchIssues()) {
                     const userResponse = await octokit.rest.users.getAuthenticated();
                     const currentUser = userResponse.data;
 
@@ -89,12 +53,12 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         if (!newComments.length) {
                             stream.markdown(`No new comments.\n\n`);
                             await markAsRead(request, chatContext, stream, notification, cancellationToken);
-                            return;
+                            continue;
                         }
                         if (newComments.every(comment => comment.user?.type === 'Bot')) {
                             stream.markdown(`Only bot comments.\n\n`);
                             await markAsRead(request, chatContext, stream, notification, cancellationToken);
-                            return;
+                            continue;
                         }
                     }
 
@@ -126,9 +90,8 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         await markAsRead(request, chatContext, stream, notification, cancellationToken);
                     }
 
-                } else {
-                    stream.markdown('No open issues found.');
                 }
+                stream.markdown('No more issues found.');
             } catch (error) {
                 stream.markdown(`Error fetching issues: ${error?.message}`);
             }
@@ -157,6 +120,40 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
     const chatLibParticipant = vscode.chat.createChatParticipant('chat-tools-sample.catTools', handler);
     chatLibParticipant.iconPath = vscode.Uri.joinPath(context.extensionUri, 'cat.jpeg');
     context.subscriptions.push(chatLibParticipant);
+}
+
+async function* fetchIssues() {
+    const octokit = new Octokit({
+        auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+    });
+    // const response = await octokit.rest.search.issuesAndPullRequests({
+    //     q: 'repo:devcontainers/cli is:issue is:open -label:bug -label:feature-request -label:question -label:info-needed -label:under-discussion -label:debt -label:upstream -label:polish',
+    //     sort: 'created',
+    //     order: 'desc',
+    //     per_page: 1
+    // });
+    // const issue = response.data.items[0];
+
+    const iterator = octokit.paginate.iterator(octokit.rest.activity.listNotificationsForAuthenticatedUser);
+    for await (const res of iterator) {
+        for (const notification of res.data) {
+            if (notification.subject.type === 'Issue') {
+                const response = await octokit.rest.issues.get({
+                    owner: notification.repository.owner.login,
+                    repo: notification.repository.name,
+                    issue_number: parseInt(notification.subject.url.split('/').pop()!),
+                });
+                const issue = response.data;
+                const segments = notification.subject.latest_comment_url.split('/');
+                let newCommentCreatedAt: string | undefined;
+                if (segments[segments.length - 2] === 'comments') {
+                    const commentResponse = await octokit.rest.issues.getComment({ owner: segments[segments.length - 5], repo: segments[segments.length - 4], comment_id: parseInt(segments[segments.length - 1]) });
+                    newCommentCreatedAt = commentResponse.data.created_at;
+                }
+                yield { octokit, issue, notification, newCommentCreatedAt };
+            }
+        }
+    }
 }
 
 async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
