@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as chatUtils from '@vscode/chat-extension-utils';
 import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
-import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt, CustomInstructionsPrompt } from './cruncherPrompt';
+import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt, CustomInstructionsPrompt, SummarizationInstructionsPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
 
 const enableCheckResolution = false;
@@ -66,17 +66,25 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     const files = await vscode.workspace.findFiles('*.json', undefined, 100);
                     for (const file of files) {
                         const content = await vscode.workspace.fs.readFile(file);
-                        knownIssues.push(JSON.parse(content.toString()));
+                        const parsed = JSON.parse(content.toString());
+                        if (parsed.summary && parsed.issue) {
+                            knownIssues.push(parsed);
+                        }
                     }
 
+                    const instructions = await loadTextFile(stream, 'issue_triage.md');
+                    const summarizationInstructions = instructions ? await extractSummarizationInstructions(request, chatContext, stream, instructions, currentUser, cancellationToken) : undefined;
+
                     const updateSummary = await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
-                    const summary = await summarizeIssue(request, chatContext, stream, currentUser, issue, comments, knownIssues, cancellationToken);
+                    const summary = await summarizeIssue(request, chatContext, stream, summarizationInstructions, currentUser, issue, comments, knownIssues, cancellationToken);
 
                     if (issue.assignees?.find(a => a.login === currentUser.login)) {
                         let closed = enableCheckResolution && await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
                         closed ||= enableFindDuplicateIssue && await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                         if (!closed) {
-                            await applyCustomInstructions(request, chatContext, stream, currentUser, issue, newComments, summary, updateSummary, cancellationToken);
+                            if (instructions) {
+                                await applyCustomInstructions(request, chatContext, stream, instructions, currentUser, issue, newComments, summary, updateSummary, cancellationToken);
+                            }
                             if (enableInfoNeededLabel) {
                                 await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
                             }
@@ -92,8 +100,8 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
 
                 }
                 stream.markdown('No more issues found.');
-            } catch (error) {
-                stream.markdown(`Error fetching issues: ${error?.message}`);
+            } catch (err) {
+                stream.markdown(`Error crunching issues: ${err?.stack || err?.message}`);
             }
             return;
         }
@@ -156,7 +164,7 @@ async function* fetchIssues() {
     }
 }
 
-async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
+async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, summarizationInstructions: string | undefined, currentUser: CurrentUser, issue: SearchIssue, comments: IssueComment[], knownIssues: KnownIssue[], cancellationToken: vscode.CancellationToken) {
     const knownIssue = knownIssues.find(knownIssue => knownIssue.issue.url === issue.url);
     if (knownIssue?.issue.updated_at === issue.updated_at) {
         stream.markdown(`## Summary\n\n${knownIssue.summary}\n\n`);
@@ -171,6 +179,7 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const result = await renderPrompt(
         SummarizationPrompt,
         {
+            summarizationInstructions,
             currentUser,
             issue,
             comments,
@@ -332,22 +341,7 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
     return false;
 }
 
-async function applyCustomInstructions(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, currentUser: CurrentUser, issue: SearchIssue, newComments: IssueComment[], summary: string, updateSummary: string | undefined, cancellationToken: vscode.CancellationToken) {
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
-        return;
-    }
-    const instructionsUri = vscode.Uri.joinPath(workspaceFolder.uri, 'issue_triage.md');
-    let instructions;
-    try {
-        instructions = await vscode.workspace.fs.readFile(instructionsUri);
-    } catch (error) {
-        if (error instanceof vscode.FileSystemError && error.code !== 'FileNotFound') {
-            stream.markdown(`Error reading instructions file: ${error.message}`);
-        }
-        return;
-    }
-
+async function applyCustomInstructions(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, instructions: string, currentUser: CurrentUser, issue: SearchIssue, newComments: IssueComment[], summary: string, updateSummary: string | undefined, cancellationToken: vscode.CancellationToken) {
     stream.markdown(`## Applying Custom Instructions\n\n`);
 
     const tools = vscode.lm.tools.filter(tool => [
@@ -364,7 +358,7 @@ async function applyCustomInstructions(request: vscode.ChatRequest, chatContext:
         CustomInstructionsPrompt,
         {
             currentUser,
-            instructions: instructions.toString(),
+            instructions,
             issue,
             newComments,
             summary,
@@ -390,6 +384,78 @@ async function applyCustomInstructions(request: vscode.ChatRequest, chatContext:
     } catch (err) {
         if (err?.name !== 'Canceled') {
             throw err;
+        }
+    }
+}
+
+async function extractSummarizationInstructions(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, instructions: string, currentUser: CurrentUser, cancellationToken: vscode.CancellationToken) {
+    stream.markdown(`## Summarization Instructions\n\n`);
+
+    const existingText = await loadTextFile(stream, 'issue_triage_summarization.json');
+    if (existingText) {
+        const existing = JSON.parse(existingText);
+        if (existing.instructions === instructions) {
+            stream.markdown(`No changes to instructions.\n\n`);
+            return existing.summarizationInstructions;
+        }
+    }
+
+    const options: vscode.LanguageModelChatRequestOptions = {
+        justification: 'Summarizing custom instructions for @cruncher',
+    };
+    const model = request.model;
+    const result = await renderPrompt(
+        SummarizationInstructionsPrompt,
+        {
+            currentUser,
+            instructions,
+            context: chatContext,
+            request,
+        },
+        { modelMaxPromptTokens: model.maxInputTokens },
+        model);
+    result.references.forEach(ref => {
+        if (ref.anchor instanceof vscode.Uri || ref.anchor instanceof vscode.Location) {
+            stream.reference(ref.anchor);
+        }
+    });
+    const response = await model.sendRequest(result.messages, options, cancellationToken);
+
+    const { text: summary } = await readResponse(response, stream);
+    stream.markdown('\n\n');
+
+    await storeTextFile(stream, 'issue_triage_summarization.json', JSON.stringify({ instructions, summarizationInstructions: summary }, null, 2));
+
+    return summary;
+}
+
+async function loadTextFile(stream: vscode.ChatResponseStream, filename: string) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return undefined;
+    }
+    const instructionsUri = vscode.Uri.joinPath(workspaceFolder.uri, filename);
+    try {
+        return (await vscode.workspace.fs.readFile(instructionsUri)).toString();
+    } catch (error) {
+        if (error instanceof vscode.FileSystemError && error.code !== 'FileNotFound') {
+            stream.markdown(`Error reading instructions file: ${error.message}`);
+        }
+        return undefined;
+    }
+}
+
+async function storeTextFile(stream: vscode.ChatResponseStream, filename: string, content: string) {
+    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    if (!workspaceFolder) {
+        return;
+    }
+    const instructionsUri = vscode.Uri.joinPath(workspaceFolder.uri, filename);
+    try {
+        await vscode.workspace.fs.writeFile(instructionsUri, Buffer.from(content));
+    } catch (error) {
+        if (error instanceof vscode.FileSystemError && error.code !== 'FileNotFound') {
+            stream.markdown(`Error writing to instructions file: ${error.message}`);
         }
     }
 }

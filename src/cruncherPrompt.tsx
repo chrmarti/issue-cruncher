@@ -18,7 +18,10 @@ export interface KnownIssue {
 	issue: SearchIssue;
 }
 
+const teamAssociations = ['MEMBER', 'OWNER'];
+
 export interface SummarizationProps extends BasePromptElementProps {
+	summarizationInstructions?: string;
 	currentUser: CurrentUser;
 	issue: SearchIssue;
 	comments: IssueComment[];
@@ -28,22 +31,36 @@ export interface SummarizationProps extends BasePromptElementProps {
 
 export class SummarizationPrompt extends PromptElement<SummarizationProps, void> {
 	render(_state: void, _sizing: PromptSizing) {
-		const teamAssociations = ['MEMBER', 'OWNER'];
+		const { issue } = this.props;
+		const [owner, repo] = issue.repository_url.split('/').slice(-2);
 		return (
 			<UserMessage>
 				# Summarize GitHub Issue<br />
 				<br />
 				Task: Summarize the following GitHub issue and its comments in a few sentences for @{this.props.currentUser.login}.<br />
-				- Did the author provide the logs?<br />
 				- What are the main points that could lead to the resolution of the issue?<br />
 				- Is there any information missing that the author needs to supply to resolve the issue? Information asked for by a project member is important.<br />
 				- What is the resolution of the issue?<br />
+				{this.props.summarizationInstructions && (
+					<>
+						- Include any additional information requested in the user instructions below.<br />
+						<br />
+						{`<user_instructions>`}<br />
+						## Instructions<br />
+						<br />
+						{this.props.summarizationInstructions.replace(/(^|\n)#/g, '$1###')}<br />
+						{`</user_instructions>`}<br />
+					</>
+				)}
 				<br />
-				## Issue {this.props.issue.html_url} by @{this.props.issue.user?.login}{teamAssociations.includes(this.props.issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
-				<br />
-				Title: {this.props.issue.title}<br />
-				<br />
-				State: {this.props.issue.state}{this.props.issue.state_reason ? <> ({this.props.issue.state_reason})</> : ''}<br />
+				{`<issue>`}<br />
+				## Issue: {owner}/{repo}#{issue.number}<br />
+				- State: {issue.state}{issue.state_reason ? <> ({issue.state_reason})</> : ''}<br />
+				- Labels: {issue.labels?.map(label => typeof label === 'string' ? label : label.name).map(label => `\`${label}\``).join(', ') || '-'}<br />
+				- Assignee: {issue.assignees?.map(assignee => `@${assignee.login}`).join(', ') || '-'}<br />
+				- Title: {issue.title}<br />
+				- Author: @{issue.user?.login}{teamAssociations.includes(issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
+				- Created: {new Date(issue.created_at).toLocaleDateString()}<br />
 				<br />
 				{this.props.issue.body?.replace(/(^|\n)#/g, '$1###')}<br />
 				<br />
@@ -55,6 +72,7 @@ export class SummarizationPrompt extends PromptElement<SummarizationProps, void>
 						<br />
 					</>
 				))}
+				{`</issue>`}<br />
 			</UserMessage>
 		);
 	}
@@ -71,7 +89,8 @@ export interface UpdateSummarizationProps extends BasePromptElementProps {
 
 export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarizationProps, void> {
 	render(_state: void, _sizing: PromptSizing) {
-		const teamAssociations = ['MEMBER', 'OWNER'];
+		const { issue, newComments } = this.props;
+		const [owner, repo] = issue.repository_url.split('/').slice(-2);
 		return (
 			<UserMessage>
 				# Summarize GitHub Comments<br />
@@ -80,11 +99,15 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 				- What information do the new comments add to the issue?
 				- Are there any additional points added by the new comments that can lead to the resolution of the issue?<br />
 				<br />
-				## Issue {this.props.issue.html_url} by @{this.props.issue.user?.login}{teamAssociations.includes(this.props.issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
-				<br />
-				Title: {this.props.issue.title}<br />
-				<br />
-				State: {this.props.issue.state}{this.props.issue.state_reason ? <> ({this.props.issue.state_reason})</> : ''}<br />
+				{`<issue>`}<br />
+				## Issue: {owner}/{repo}#{issue.number}<br />
+				- State: {issue.state}{issue.state_reason ? <> ({issue.state_reason})</> : ''}<br />
+				- Labels: {issue.labels?.map(label => typeof label === 'string' ? label : label.name).map(label => `\`${label}\``).join(', ') || '-'}<br />
+				- Assignee: {issue.assignees?.map(assignee => `@${assignee.login}`).join(', ') || '-'}<br />
+				- New Comment: {newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : '-'}<br />
+				- Title: {issue.title}<br />
+				- Author: @{issue.user?.login}{teamAssociations.includes(issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
+				- Created: {new Date(issue.created_at).toLocaleDateString()}<br />
 				<br />
 				{this.props.newComments.map(comment => (
 					<>
@@ -94,6 +117,7 @@ export class UpdateSummarizationPrompt extends PromptElement<UpdateSummarization
 						<br />
 					</>
 				))}
+				{`</issue>`}<br />
 			</UserMessage>
 		);
 	}
@@ -184,21 +208,24 @@ export class CustomInstructionsPrompt extends PromptElement<CustomInstructionsPr
 				<br />
 				<ToolsReminder />
 				<br />
-				Task: Apply to following instructions to the below issue on behalf of @{this.props.currentUser.login}. Use the available tools when appropriate.<br />
+				Task: Apply to following user instructions to the below issue on behalf of @{this.props.currentUser.login}. Use the available tools when appropriate.<br />
 				<br />
+				{`<user_instructions>`}<br />
 				## Instructions<br />
 				<br />
 				{this.props.instructions.replace(/(^|\n)#/g, '$1###')}<br />
+				{`</user_instructions>`}<br />
 				<br />
+				{`<issue>`}<br />
 				## Issue Overview<br />
 				<br />
 				Issue: {owner}/{repo}#{issue.number}<br />
-				- State: {issue.state}<br />
+				- State: {issue.state}{issue.state_reason ? <> ({issue.state_reason})</> : ''}<br />
 				- Labels: {issue.labels?.map(label => typeof label === 'string' ? label : label.name).map(label => `\`${label}\``).join(', ') || '-'}<br />
 				- Assignee: {issue.assignees?.map(assignee => `@${assignee.login}`).join(', ') || '-'}<br />
 				- New Comment: {newComments.length ? new Date(newComments[0].created_at).toLocaleDateString() : '-'}<br />
 				- Title: {issue.title}<br />
-				- Author: @{issue.user?.login}<br />
+				- Author: @{issue.user?.login}{teamAssociations.includes(issue.author_association) ? <> (project member)</> : <> (community member)</>}<br />
 				- Created: {new Date(issue.created_at).toLocaleDateString()}<br />
 				{this.props.updateSummary && (
 					<>
@@ -212,6 +239,32 @@ export class CustomInstructionsPrompt extends PromptElement<CustomInstructionsPr
 				## Issue Summary<br />
 				<br />
 				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
+				{`</issue>`}<br />
+			</UserMessage>
+		);
+	}
+}
+
+export interface SummarizationInstructionsProps extends BasePromptElementProps {
+	currentUser: CurrentUser;
+	instructions: string;
+	request: vscode.ChatRequest;
+	context: vscode.ChatContext;
+}
+
+export class SummarizationInstructionsPrompt extends PromptElement<SummarizationInstructionsProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		return (
+			<UserMessage>
+				# Summarization Instructions<br />
+				<br />
+				Task: What information beyond the current labels and assignees do we need to extract from a GitHub issue and its comments, so the following user instructions from @{this.props.currentUser.login} can be followed based on the extracted information alone? Reply with a prompt snippet that can be included in a summarization prompt. The summarization prompt will not include the full user instructions. Avoid asking for the full text of the issue or its comments as these can be too large for the final prompt.<br />
+				<br />
+				{`<user_instructions>`}<br />
+				## Instructions<br />
+				<br />
+				{this.props.instructions.replace(/(^|\n)#/g, '$1###')}<br />
+				{`</user_instructions>`}<br />
 			</UserMessage>
 		);
 	}
