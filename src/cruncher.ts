@@ -4,6 +4,7 @@ import { Octokit } from '@octokit/rest';
 import { renderPrompt } from '@vscode/prompt-tsx';
 import { SearchIssue, KnownIssue, SummarizationPrompt, IssueComment, TypeLabelPrompt, InfoNeededLabelPrompt, FindDuplicatePrompt, UpdateSummarizationPrompt, CurrentUser, Notification, MarkReadPrompt, CheckResolutionPrompt, CustomInstructionsPrompt, SummarizationInstructionsPrompt } from './cruncherPrompt';
 import { CloseAsDuplicateParameters } from './tools';
+import path from 'path';
 
 const enableCheckResolution = false;
 const enableFindDuplicateIssue = false;
@@ -72,7 +73,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                         }
                     }
 
-                    const instructions = await loadTextFile(stream, 'issue_triage.md');
+                    const instructions = await loadTextFile(stream, path.join(context.extensionUri.fsPath, 'resources', 'instructions.md'));
                     const summarizationInstructions = instructions ? await extractSummarizationInstructions(request, chatContext, stream, instructions, currentUser, cancellationToken) : undefined;
 
                     const updateSummary = await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
@@ -434,9 +435,9 @@ async function loadTextFile(stream: vscode.ChatResponseStream, filename: string)
     if (!workspaceFolder) {
         return undefined;
     }
-    const instructionsUri = vscode.Uri.joinPath(workspaceFolder.uri, filename);
+    const fileUri = path.isAbsolute(filename) ? vscode.Uri.file(filename) : vscode.Uri.joinPath(workspaceFolder.uri, filename);
     try {
-        return (await vscode.workspace.fs.readFile(instructionsUri)).toString();
+        return (await vscode.workspace.fs.readFile(fileUri)).toString();
     } catch (error) {
         if (error instanceof vscode.FileSystemError && error.code !== 'FileNotFound') {
             stream.markdown(`Error reading instructions file: ${error.message}`);

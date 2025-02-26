@@ -1,0 +1,605 @@
+- If the issue has the `triage-needed` label pick the correct owner from the appended list of work areas, reassign the issue from the current user to the correct owner and remove the `triage-needed` label, then stop.
+- If the issue doesn't have one of the `bug`, `feature-request`, `question`, `upstream`, `debt` or `info-needed` labels yet add the one that matches best:
+  - `bug`: A problem or error in the software.
+  - `feature-request`: A request for a new feature or enhancement.
+  - `question`: A question or inquiry about the software.
+  - `upstream`: An issue that originates from an upstream dependency.
+  - `debt`: Technical debt that needs to be addressed.
+- Add the `info-needed` label if the user still needs to provide additional information.
+- For bug reports: If the author did not provide the logs add the `info-needed` label and add one of the following comments:
+  - For Dev Containers issues: "Please append the Dev Containers log from when this happens. (`F1` > `Dev Containers: Show Container Log`)"
+  - For vscode-chat/vscode-chat-release networking issues: "Please check the output of `F1` > `Developer: GitHub Copilot Chat Diagnostics` in VS Code and append it here."
+  - For other vscode-chat/vscode-chat-release issues: "Please append the Copilot Chat log from when this happens. (`F1` > `Output: Show Output Channels...` > `GitHub Copilot Chat`)"
+
+<workareas>
+Work areas:
+  - Aaron (@amunger)
+    - Interactive Window / REPL
+    - Notebook
+      - Output renderers
+      - Accessibility
+      - Variables View
+      - Performance
+  - Aiday (@aiday-mar)
+    - `editor-sticky-scroll`: Working on the sticky scroll feature
+    - `json-sorting` : The JSONC sorting feature
+    - `editor-hover` : The editor-hover issues
+    - `editor-color-picker` : The color-picker feature
+    - `editor-autoindent` : The editor auto indentation feature area
+    - `editor-input-IME`: composition/IME issues
+  - AlexD (@alexdima)
+    - `vscode-textmate`: TextMate grammar parsing and TextMate theme matching
+    - related to the Monaco Editor
+      - 🛠️tooling for shipping `monaco-editor-core` / `monaco.d.ts` from `vscode` (tree-shaking, .d.ts generation).
+      - `monaco-typescript`: TS plugin for the monaco editor
+      - `monaco-languages`: language plugins for the monaco editor
+      - `monaco-editor` issues: questions, api, feature requests, etc.
+      - monaco editor website, monaco editor playground, `monaco-editor-samples`.
+      - `monaco-editor-webpack-plugin`: a webpack plugin that makes loading the editor via webpack easier
+      - shipping the editor, maintaining a changelog, adopting editor API breakages in: `monaco-css`, `monaco-json`, and `monaco-html`, making our code work on IE11 / Edge (and until recently on FF).
+    - 🛠️tooling for scanning for OSS modules that we ship and fetching licenses and generating ThirdPartyNotices.txt.
+    - `vscode-loader` (AMD loader, CSS plugin); bundling our modules
+    - related to the Extension Host:
+      - `node-native-watchdog`: C++ node module to exit a process when another process exits
+      - extension host process, communication protocol, actors, restarting, resolvers, extension scanning, extension points handling, extension activation
+    - related to VS Code Remote:
+      - vs code server
+      - client-server connection, websockets, http server, connection, reconnection, uri transformer
+    - related to keybindings:
+      - `node-native-keymap` - C++ node module to read keyboard layout info from the OS
+      - making our US defined default keybindings make sense across keyboard layouts
+      - keybinding rules, keybinding reverse lookup, keybinding dispatching, keybinding configuration
+    - custom scrollbars, scrolling
+    - web worker infrastructure
+    - context keys
+    - related to the editor:
+      - rendering: minimap, text, decorations, inline decorations, selections, line numbers, glyphs, content widgets, indent guides, etc.
+      - bracket matching
+      - link detection
+      - selection highlight
+      - column selection
+      - multicursor
+      - auto closing brackets, quotes, overtyping
+      - text buffer decorations interval tree
+      - commands: typing, composition, enter rules, toggle comment, move lines, duplicate lines, indent/unindent lines
+      - word wrapping
+      - diff editor, diff computer
+      - Monarch tokenizer
+  - AlexR (@alexr00)
+    - Custom tree view
+    - Simple file dialog
+    - Remote explorer
+      - UX
+      - Containers
+      - WSL
+    - Grammars
+    - Variable resolver
+    - GitHub Pull Request and Issues extension
+    - Ports view
+  - Anthony (@anthonykim1)
+    - Python REPL
+        - Native REPL
+        - REPL in Terminal
+    - Terminal experience for Python (Any terminal related for Python)
+  - Bhavya (@bhavyaus)
+    - Setup
+      - Welcome
+      - Getting Started
+      - Interactive Playground
+  - Ben P (@bpasero)
+    - Peformance
+    - Host Support & Enablement
+      - Electron (incl. node.js)
+      - Web (Chrome, Edge)
+    - File Watcher [up for grab]
+    - Working Copy
+    - Hot Exit
+    - OS Integration [up for grab]
+    - Files
+      - Encoding [up for grab]
+      - I/O
+    - Multi Root
+    - Workbench
+      - DND
+      - Editors
+      - History
+      - State
+      - Notifications
+      - Run as Admin [up for grab]
+      - Status Bar [up for grab]
+      - Touchbar [up for grab]
+      - Window Management [up for grab]
+      - Aux / Floating Windows
+    - VS Code Speech Extension and integration
+  - Ben S (@benibenj)
+    - Tree
+      - Sticky Scroll
+      - Find
+    - Workbench
+      - Editor Tabs
+      - Layout
+      - Acitivty Bar
+      - Views
+      - Custom Hover
+      - Menubar
+      - Zen Mode
+      - Centered Layout
+      - Custom Titlebar
+      - Custom Labels
+      - Synchronize Scrolling
+    - VSCE
+    - Copilot
+      - Drag and Drop Context
+      - Folder Context
+      - Symbols completion
+    - VS Code Commander
+  - Christof (@chrmarti)
+    - 🔌Remote-Containers extension
+    - Welcome UX
+    - Network proxy support for extension host
+    - 🛠️GitHub / Slack bot
+    - 🔌Merge-Conflict built-in extension
+  - Connor (@connor4312)
+    - Debugging
+      - Debug Adapter Protocol (DAP) (co-owned with @roblourens)
+        - Specification owner and discussion moderator
+        - DAP repository and Web site (https://microsoft.github.io/debug-adapter-protocol/)
+        - DAP npm modules: https://github.com/microsoft/vscode-debugadapter-node
+        - VA Code's communication with debug adapters
+      - Overall debug architecture (co-owned w. @roblourens)
+        - Debug configurations and setup
+        - Loaded Scripts View
+        - Extension debugging
+        - Debug Extension API
+        - Remote debugging
+      - JavaScript debugger
+      - JavaScript profile visualizers and analyzers
+    - Copilot
+      - /fixTestFailure flow
+      - /setupTests (co-owned with @meganrogge) and `copilot-debug` command
+    - Notebook
+      - Output renderers
+      - @types/vscode-notebook-renderers
+    - Testing
+      - VS Code testing API and features
+      - vscode-test-electron, vscode-test-cli, extension test runner
+    - Terminal typeahead
+    - Miscellaneous
+      - vscode-standup
+  - Daniel (@Tyriar)
+    - Terminal
+      - Integrated/external in VS Code
+      - [xterm.js](https://github.com/xtermjs/xterm.js) ([npm](https://www.npmjs.com/package/@xterm/xterm))
+      - [node-pty](https://github.com/microsoft/node-pty) ([npm](https://www.npmjs.com/package/node-pty))
+      - [Copilot integration](https://github.com/microsoft/vscode-copilot/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal)
+      - I'm the sole owner of these specific labels (not Megan):
+        - [`terminal-conpty`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-conpty)
+        - [`terminal-env-collection`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-env-collection)
+        - [`terminal-external`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-external)
+        - [`terminal-input`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-input)
+        - [`terminal-layout`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-layout)
+        - [`terminal-ligatures`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-ligatures)
+        - [`terminal-links`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-links)
+        - [`terminal-local-echo`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-local-echo)
+        - [`terminal-parser`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-parser)
+        - [`terminal-persistence`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-persistence)
+        - [`terminal-process`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-process)
+        - [`terminal-rendering`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-rendering)
+        - [`terminal-shell-cmd`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-shell-cmd)
+        - [`terminal-shell-integration`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-shell-integration)
+        - [`terminal-shell-pwsh`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-shell-pwsh)
+        - [`terminal-sticky-scroll`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-sticky-scroll)
+    - Editor
+      - WebGPU renderer for Monaco ([`editor-gpu`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aeditor-gpu))
+    - Workbench
+      - [`workbench-hover`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aworkbench-hover)
+        - The workbench hover widget and service 
+        - Note that this is not the editor hover of which shares very little code
+      - [`workbench-dim-unfocused`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aworkbench-dim-unfocused)
+    - Settings Sync
+      - [Server code](https://github.com/microsoft/vscode-settings-sync-server)
+      - [Service](https://github.com/microsoft/vscode-settings-sync-server?tab=readme-ov-file#staging-and-production-environments)
+    - [windows-process-tree](https://github.com/microsoft/vscode-windows-process-tree) ([npm](https://www.npmjs.com/package/@vscode/windows-process-tree))
+    - Technically own, but very little attention
+      - [`editor-parameter-hints`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aeditor-parameter-hints) (from Pine)
+      - [`workbench-diagnostics`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aworkbench-diagnostics) (from Rachel)
+        - Process explorer
+        - Diagnostics part of `code --status`, issue reporter, etc.
+    - Partial ownership
+      - Overall performance
+      - Tasks
+      - CLI scripts
+      - Shell environment sourcing ([shellEnv.ts](https://github.com/microsoft/vscode/blob/main/src/vs/platform/shell/node/shellEnv.ts))
+      - 🛠️Smoke tests
+  - David
+    - UX
+    - Merge Editor
+    - Profiles
+    - Notifications
+    - Themes
+    - Webview UI Toolkit
+    - Product Icons
+    - File icons
+    - Extension UX Guidelines
+    - Workbench
+      - Design system
+      - Title Bar
+      - Context Menus
+      - Command Center
+    - Color contrast
+    - Getting Started
+    - GHPRI Extension UX
+  - Deepak (@deepak1556)
+    - Host Support & Enablement
+      - Electron (incl. chromium, node.js)
+    - Engineering
+      - 🛠️Electron updates
+    - Freeze / Slow / Crash
+    - Performance
+    - OS Integration
+    - Cross Team
+      - MSFT Electron @ Prague
+  - Dirk (@dbaeumer)
+    - `vscode-loader`: NLS plugin for loader
+    - `vscode-nls`:
+      - libraries to get NLS support in extensions
+    - `vscode-nls-dev`:
+      - tooling to generate NLS file from TS/JS and package.nls.json files for extensions
+      - gulp tasks to integrate the tooling into Gulp files
+    - `vscode`:
+      - tooling to export and import NLS file for translation team
+      - tooling to support NLS in VS Code.
+    - `vscode-eslint`:
+      - extension to integrate ESLint into VS Code.
+    - `vscode-languageserver`:
+      - general JSON RPC implementation for Node (used in other MS projects as well)
+      - the LSP protocol as Typescript declarations plus npm modules to use the protocol
+      - a node server API for LSP
+      - a VS Code client for LSP
+    - `language-server-protocol`:
+      - the LSP specification
+      - the language server Web site (https://microsoft.github.io/language-server-protocol/)
+      - the LSIF specification
+    - `lsif-node`:
+      - LSIF implementation for TypeScript and NPM
+      - tools to convert LSIF dumps into LSP
+    - `vscode-lsif-extension` & `vscode-richNav`
+      - extension to integration LSIF into VS Code desktop & Web
+    - `ms-lsp`
+      - Use to discuss LSP usage in Nexus
+      - Microsoft specific extension to LSP
+  - Don (@DonJayamanne)
+    - notebook
+      - cell execution
+      - kernel picker
+      - diff editor
+      - Debugging
+      - Kernel
+    - ipynb extension
+  - Eleanor (@eleanorjboyd)
+    - testing in Python
+  - Erich (@egamma)
+    - 🔌NPM Script Explorer
+    - 🔌Remote Containers (PRs only)
+  - Henning (@hediet)
+    - Inline Completions
+    - Merge Editor
+    - Diff Editor
+    - Monaco Editor
+    - Core Editor Parts
+      - Bracket Matching/Colorization
+      - Text Model
+      - Tokenization
+      - Injected Text
+      - Unicode Highlighting
+  - Isi (@isidorn)
+    - Accessibility
+    - Marketplace
+  - Joao (@joaomoreno)
+    - Widgets
+      - List
+      - Tree
+      - Split View
+      - Grid View
+    - Services
+      - Update service
+      - URL service
+    - OS Integration
+    - IPC
+    - CLI
+    - Logging
+    - Linux Snap
+    - Install/update
+    - vsce
+    - Engineering
+      - 🛠️Build Pipelines
+      - 🛠️Smoke Tests
+      - 🛠️Driver
+      - 🛠️Update Server
+      - 🛠️Builds Page
+  - Joh (@jrieken)
+    - API
+      - API process/meeting/coordination
+      - APIs, many APIs
+    - Web extension host
+    - Freeze / Slow / Crash
+    - Performance
+      - Performance guidance
+      - v8-cached data support (vscode-loader)
+    - Workbench
+      - Git/Error resource decorations
+      - Auto extension profiling
+      - Startup profiler
+      - Performance telemetry
+      - Rapid render
+    - Editor
+      - Reference Search (peek, viewlet)
+      - Call Hierarchy
+      - Go to Definition, Declaration, Implementation
+      - Formatting
+      - Code Lens
+      - Outline
+      - Rename
+      - Smart select
+      - Snippets
+      - IntelliSense (model)
+    - Infrastructure
+      - URI
+      - Service injection framework
+      - Bulk edit
+      - Menus, commands
+      - Context Keys
+    - Engineering
+      - 🛠️Webpack for extensions
+      - 🛠️Incremental Typescript compiler (gulp-tsb)
+      - 🛠️Performance Bot
+    - Copilot Edits
+  - Josh (@joshspicer)
+    - Remote SSH
+    - Remote Explorer
+    - Remote Containers (Dev Containers/`devcontainer.json`)
+  - Joyce (@joyceerhl)
+    - Copilot Edits
+    - Chat context
+    - GitHub remote agents
+    - Intent detection
+    - Remote Repositories extension
+    - GitHub Repositories extension
+      - vscode.dev/github and github.dev integration
+    - Continue Working On and Edit Sessions
+    - `code` Chrome extension
+  - Justin (@justschen)
+    - Code Actions and Quick Fix (`cmd + .` menu)
+    - Lightbulb Widget
+    - Issue Reporter
+    - Copilot Chat Code Block and Image attachments
+  - Karthik (@karthiknadig)
+    - Python
+      - Environment Selection
+      - Terminal activation
+      - Python Debugger (debugpy)
+      - Formatting (black/autopep8/yapf/ruff/isort)
+      - Linting (mypy/pylint/flake8)
+      - Anything python related
+      - LSP implementations issues with Python/rust/C#
+      - Python completions, hovers
+      - If it has Python in it assign me to it
+  - Ladislau (@lszomoru)
+    - Workbench
+      - Screencast mode
+    - Workspace Trust
+    - Settings Sync Service
+    - 🔌Git Extension
+    - SCM
+    - Engineering
+      - 🛠️Builds Page
+      - 🛠️Build Pipelines
+      - 🛠️Component Governance
+  - Logan (@lramos15)
+    - 🛠️GDPR tooling
+    - 🛠️GDPR registry updates
+    - Editor Resolver Service
+    - Hex Editor
+    - Telemetry
+      - vscode-extension-telemetry
+      - Product Telemetry
+    - GitHub Bots
+    - Workbench Links
+      - Trusted Domains
+      - URI Formatters
+    - Explorer
+    - Open Editors
+    - URI label rendering
+  - Martin (@aeschli)
+    - 🔌Remote WSL
+    - JSON language server
+    - HTML/CSS language server
+    - Basic languages (except grammars)
+    - File and Color Theming
+    - Folding
+    - package.json completions
+    - Copilot Edits
+  - Matt (@mjbvz)
+    Copilot
+    - `@workspace` and workspace context
+    - Linkification 
+    JS/TS
+    - 🔌JavaScript and TypeScript Language Features extension
+    - JavaScript and TypeScript grammars (on VS Code side)
+    - TypeScript in our build / picking up new TS versions
+    - TypeScript service plugins and VS Code
+    - 🔌TypeScript nightly extension
+    Markdown
+    - 🔌Markdown extension
+    - Mardown grammar
+    - Markdown extension API
+    - 🔌Markdown math extension
+    Notebooks
+    - Markdown rendering in notebooks
+    - Output API
+    Core
+    - Bumping build TS version
+    - Webviews and webview API
+    - Webviews view API
+    - Custom editor API
+    - Parameter hints
+    - Markdown rendering in core (marked)
+    - Some client security stuff like adding content security policies
+    - 🔌Media preview extension
+  - Megan (@meganrogge)
+    - Accessibility
+    - Copilot
+      - Terminal chat (co-owned with @tyriar)
+      - /startDebugging (co-owned with @connor4312)
+    - Tasks
+    - Integrated terminal
+      - I'm the sole owner of these specific labels (not Daniel):
+        - [`terminal-accessibility`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-accessibility)
+        - [`terminal-editors`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-editors)
+        - [`terminal-find`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-find)
+        - [`terminal-shell-fish`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-shell-fish)
+        - [`terminal-profiles`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-profiles)
+        - [`terminal-quick-fix`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-quick-fix)
+        - [`terminal-shell-zsh`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-shell-zsh)
+        - [`terminal-suggest`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-suggest)
+        - [`terminal-tabs`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aterminal-tabs)
+    - Debug
+      - Find in debug console
+    - Markdown smart select
+    - SCM Input History
+  - Michael (@Yoyokrazy)
+    - Notebook
+      - Cell Editor
+      - Sticky Scroll
+      - Notebook global toolbar
+      - TOC
+      - Format
+      - Code actions
+      - Save participants
+      - Find Widget
+  - Osvaldo (@osortega)
+    - Search (text and file, ripgrep, search viewlet UI, search API, search editors, serverless search)
+  - Peng (@rebornix)
+    - Editor
+      - Text buffer (`microsoft/vscode-textbuffer`)
+      - Find Widget
+    - Notebook
+      - Rendering/Layout
+      - Core API
+      - NotebookList
+      - Profile/Customization
+      - Overview ruler
+      - Contrib
+        - Commands/Keybindings
+        - Folding
+        - Undo/Redo
+        - Viewport warmup
+    - Workbench
+      - Keyboard layouts for Web
+      - Simple Find Widget
+      - Large file opening
+  - Raymond Zhao (@rzhao271)
+    - S360, especially for VS Code Client and VS Code Services
+    - Pipelines and Azure DevOps
+    - Settings editor UX
+    - Electron and Chromium, including triaging native crashes
+    - Linux packaging and post-installation scripts
+    - VS Code Website infrastructure and backend
+    - LSP and DAP website a11y and compliance
+    - Emmet
+  - Rob (@roblourens)
+    - Bing settings search
+    - PHP grammer and tolerant-php-parser (<1%)
+    <!-- - Experiments service (?) -->
+    - Debugging
+      - Debug Adapter Protocol (DAP) (co-owned with @connor4312)
+        - Specification owner and discussion moderator
+        - DAP repository and Web site (https://microsoft.github.io/debug-adapter-protocol/)
+        - DAP npm modules: https://github.com/microsoft/vscode-debugadapter-node
+        - VA Code's communication with debug adapters
+      - Overall debug architecture (co-owned w. @connor4312)
+        - Debug configurations and setup
+        - Loaded Scripts View
+        - Extension debugging
+        - Debug Extension API
+        - Remote debugging
+  - Sandeep (@sandy081)
+      - Workbench
+          - Workspace
+          - Configuration (Settings)
+          - Activity Bar
+          - Viewlets & Views
+          - Replace (Search)
+          - Keybindings UI
+          - Settings JSON UI
+          - Extensions UI
+          - Output Panel
+          - Problems Panel
+          - Extensions Recommendations
+      - Editor
+          - Goto Error
+      - Extensions Management
+      - Custom Views and View Containers
+      - Multi Root
+      - Logging
+      - Settings Sync
+      - Remote
+          - Extensions Management
+      - Cross Team
+          - VSO
+      - 🛠️VS Code Tools
+  - SteVen (@sbatten)
+      - Workbench
+          - Custom Menubar
+          - Custom Menus
+          - Simple Checkbox
+          - Workspace Trust
+      - Widgets
+          - Menubar
+          - Menu
+          - Dialog
+          - Grid View
+          - Split View
+      - Services
+          - Telemetry Service
+          - Dialog Service
+          - Progress Service
+          - Accessibility Service
+          - Assignment/Experiment Service
+          - Workspace Trust Service
+      - 🛠️Telemetry
+          - VS Code Errors Website
+          - Power BI Dashboards
+          - XFlow scripts/workflows
+          - Datagrid jobs
+          - NPS/Hats Azure Function
+      - Miscellaneous
+          - 🛠️Security 360 (Threat Model, WebScout, Pipeline Validation)
+          - Remote reconnection UX
+          - vscode-windows-registry
+          - VS Code Website
+        - Windows Store installers
+  - Tyler (@TylerLeonhardt)
+    - Workbench
+      - Quick Pick
+      - Quick Open
+    - Issue Reporter
+    - Authentication (GitHub, Microsoft, APIs)
+    - translation builds
+  - Ulugbek (@ulugbekna)
+    - Context keys
+      - especially parsing
+    - Copilot Chat (aka interactive editor)
+      - Inline Chat
+      - /doc
+      - Simulation framework
+      - Simulation workbench
+    - Keybindings
+    - Keybindings editor
+  - Orphaned Areas
+    <!-- - experimentation service -->
+    - monaco-typecript
+    - UI side of suggest
+    - Live Preview
+    - CSS Grammar (`vscode-css`)
+</workareas>
