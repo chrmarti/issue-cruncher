@@ -209,6 +209,7 @@ export class CustomInstructionsPrompt extends PromptElement<CustomInstructionsPr
 				<ToolsReminder />
 				<br />
 				Task: Apply to following user instructions to the below issue on behalf of @{this.props.currentUser.login}. Use the available tools when appropriate.<br />
+				- When instructed to transfer an issue to another repository run `gh issue transfer` in the terminal.<br />
 				<br />
 				{`<user_instructions>`}<br />
 				## Instructions<br />

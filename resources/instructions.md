@@ -1,3 +1,4 @@
+- If the issue is in the `microsoft/vscode` repository and is about Copilot Chat, transfer it to `microsoft/vscode-copilot-release` and stop.
 - If the issue has the `triage-needed` label pick the correct owner from the appended list of work areas, reassign the issue from the current user to the correct owner and remove the `triage-needed` label, then stop.
 - If the issue doesn't have one of the `bug`, `feature-request`, `question`, `upstream`, `debt` or `info-needed` labels yet add the one that matches best:
   - `bug`: A problem or error in the software.
@@ -193,7 +194,7 @@ Work areas:
       - WebGPU renderer for Monaco ([`editor-gpu`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aeditor-gpu))
     - Workbench
       - [`workbench-hover`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aworkbench-hover)
-        - The workbench hover widget and service 
+        - The workbench hover widget and service
         - Note that this is not the editor hover of which shares very little code
       - [`workbench-dim-unfocused`](https://github.com/microsoft/vscode/issues?q=is%3Aissue%20state%3Aopen%20label%3Aworkbench-dim-unfocused)
     - Settings Sync
@@ -211,7 +212,7 @@ Work areas:
       - CLI scripts
       - Shell environment sourcing ([shellEnv.ts](https://github.com/microsoft/vscode/blob/main/src/vs/platform/shell/node/shellEnv.ts))
       - 🛠️Smoke tests
-  - David
+  - Orphaned Areas
     - UX
     - Merge Editor
     - Profiles
@@ -422,7 +423,7 @@ Work areas:
   - Matt (@mjbvz)
     Copilot
     - `@workspace` and workspace context
-    - Linkification 
+    - Linkification
     JS/TS
     - 🔌JavaScript and TypeScript Language Features extension
     - JavaScript and TypeScript grammars (on VS Code side)

@@ -349,6 +349,7 @@ async function applyCustomInstructions(request: vscode.ChatRequest, chatContext:
         'chat-tools-sample_addLabelToIssue',
         'chat-tools-sample_closeIssue',
         'chat-tools-sample_reassignIssue',
+        'copilot_runInTerminal',
     ].includes(tool.name));
     const options: vscode.LanguageModelChatRequestOptions = {
         justification: 'Applying custom instructions with @cruncher',
