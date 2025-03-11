@@ -1,4 +1,5 @@
 - If the issue is in the `microsoft/vscode` repository and is about Copilot Chat, transfer it to `microsoft/vscode-copilot-release` and stop.
+- If the issue is in the `microsoft/vscode` repository and is about Dev Containers, transfer it to `microsoft/vscode-remote-release` and stop.
 - If the issue has the `triage-needed` label pick the correct owner from the appended list of work areas, reassign the issue from the current user to the correct owner and remove the `triage-needed` label, then stop.
 - If the issue doesn't have one of the `bug`, `feature-request`, `question`, `upstream`, `debt` or `info-needed` labels yet add the one that matches best:
   - `bug`: A problem or error in the software.
