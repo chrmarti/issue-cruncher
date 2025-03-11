@@ -260,7 +260,7 @@ export class SummarizationInstructionsPrompt extends PromptElement<Summarization
 			<UserMessage>
 				# Summarization Instructions<br />
 				<br />
-				Task: What information beyond the current labels and assignees do we need to extract from a GitHub issue and its comments, so the following user instructions from @{this.props.currentUser.login} can be followed based on the extracted information alone? Reply with a prompt snippet that can be included in a summarization prompt. The summarization prompt will not include the full user instructions. Avoid asking for the full text of the issue or its comments as these can be too large for the final prompt.<br />
+				Task: What information do we need to extract from a GitHub issue and its comments for a summary, so the following user instructions from @{this.props.currentUser.login} can be applied using only the summary? The issue's current repository, state, labels or assignees will be automatically added to the summary. If the user instructions ask for logs include in the summary how the presence of these logs can be detected in an issue's text. Reply with a prompt snippet that can be included in a summarization prompt instead of the full user instructions. Avoid asking for the full text of the issue or its comments as these can be too large for the final prompt.<br />
 				<br />
 				{`<user_instructions>`}<br />
 				## Instructions<br />
