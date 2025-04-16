@@ -239,7 +239,7 @@ async function summarizeUpdate(request: vscode.ChatRequest, chatContext: vscode.
     });
     const response = await model.sendRequest(result.messages, options, cancellationToken);
 
-    const { text: summary } = await readResponse(response, stream);
+    const { text: summary } = await readResponse(response, stream, true);
     stream.markdown('\n\n');
     return summary;
 }
@@ -597,13 +597,18 @@ async function markAsRead(request: vscode.ChatRequest, chatContext: vscode.ChatC
     }
 }
 
-async function readResponse(response: vscode.LanguageModelChatResponse, stream: vscode.ChatResponseStream) {
+async function readResponse(response: vscode.LanguageModelChatResponse, stream: vscode.ChatResponseStream, block = false) {
     // Stream text output and collect tool calls from the response
     const calls: vscode.LanguageModelToolCallPart[] = [];
     let text = '';
     for await (const part of response.stream) {
         if (part instanceof vscode.LanguageModelTextPart) {
-            stream.markdown(part.value);
+            if (block) {
+                const value = part.value.split(/\r?\n/).join('\n> ');
+                stream.markdown(text ? value : `> ${value}`);
+            } else {
+                stream.markdown(part.value);
+            }
             text += part.value;
         } else if (part instanceof vscode.LanguageModelToolCallPart) {
             calls.push(part);

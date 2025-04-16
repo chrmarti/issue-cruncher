@@ -207,9 +207,10 @@ class AddLabelToIssueTool implements vscode.LanguageModelTool<AddLabelParameters
 	) {
 		const { owner, repo, issue_number, label, comment } = options.input;
 		const confirmationMessages = {
-			title: 'Add label to issue',
-			message: new vscode.MarkdownString(
-				`Add the label \`${label}\`${comment ? ` and comment "${comment}"` : ''} to issue \`${owner}/${repo}#${issue_number}\`?`
+			title: 'Update issue',
+			message: new vscode.MarkdownString(`Issue: [${owner}/${repo}#${issue_number}](https://github.com/${owner}/${repo}/issues/${issue_number})
+- Add label: \`${label}\`${comment ? `
+- Add comment: \`${comment}\`` : ''}`
 			),
 		};
 
