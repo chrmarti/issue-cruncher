@@ -227,7 +227,7 @@ interface ReassignParameters {
 	repo: string;
 	issue_number: number;
 	old_owner?: string;
-	new_owner: string;
+	new_owners: string[];
 	remove_label?: string;
 }
 
@@ -236,7 +236,7 @@ class ReassignIssueTool implements vscode.LanguageModelTool<ReassignParameters> 
 		options: vscode.LanguageModelToolInvocationOptions<ReassignParameters>,
 		_token: vscode.CancellationToken
 	) {
-		const { owner, repo, issue_number, old_owner, new_owner, remove_label } = options.input;
+		const { owner, repo, issue_number, old_owner, new_owners, remove_label } = options.input;
 
 		const octokit = new Octokit({
 			auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
@@ -249,12 +249,12 @@ class ReassignIssueTool implements vscode.LanguageModelTool<ReassignParameters> 
 				assignees: [old_owner]
 			});
 		}
-		if (new_owner) {
+		if (new_owners.length) {
 			await octokit.rest.issues.addAssignees({
 				owner,
 				repo,
 				issue_number,
-				assignees: [new_owner]
+				assignees: new_owners
 			});
 		}
 		if (remove_label) {
@@ -266,23 +266,23 @@ class ReassignIssueTool implements vscode.LanguageModelTool<ReassignParameters> 
 			});
 		}
 
-		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Reassigned issue \`${owner}/${repo}#${issue_number}\` to \`@${new_owner}\``)]);
+		return new vscode.LanguageModelToolResult([new vscode.LanguageModelTextPart(`Reassigned issue \`${owner}/${repo}#${issue_number}\` to ${new_owners.map(o => `@\`${o}\``).join(', ')}`)]);
 	}
 
 	async prepareInvocation(
 		options: vscode.LanguageModelToolInvocationPrepareOptions<ReassignParameters>,
 		_token: vscode.CancellationToken
 	) {
-		const { owner, repo, issue_number, old_owner, new_owner, remove_label } = options.input;
+		const { owner, repo, issue_number, old_owner, new_owners, remove_label } = options.input;
 		const confirmationMessages = {
 			title: 'Reassign issue',
 			message: new vscode.MarkdownString(
-				`Reassign issue \`${owner}/${repo}#${issue_number}\`${old_owner ? ` from \`@${old_owner}\`` : ''} to \`@${new_owner}\`${remove_label ? ` and remove label \`${remove_label}\`` : ''}?`
+				`Reassign issue \`${owner}/${repo}#${issue_number}\`${old_owner ? ` from \`@${old_owner}\`` : ''} to ${new_owners.map(o => `@\`${o}\``).join(', ')}${remove_label ? ` and remove label \`${remove_label}\`` : ''}?`
 			),
 		};
 
 		return {
-			invocationMessage: `Reassigning issue \`${owner}/${repo}#${issue_number}\`${old_owner ? ` from \`@${old_owner}\`` : ''} to \`@${new_owner}\`${remove_label ? ` and removing label \`${remove_label}\`` : ''}`,
+			invocationMessage: `Reassigning issue \`${owner}/${repo}#${issue_number}\`${old_owner ? ` from \`@${old_owner}\`` : ''} to ${new_owners.map(o => `@\`${o}\``).join(', ')}${remove_label ? ` and removing label \`${remove_label}\`` : ''}`,
 			confirmationMessages,
 		};
 	}

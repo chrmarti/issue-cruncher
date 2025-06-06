@@ -195,7 +195,7 @@
 					"chat-tools-sample"
 				],
 				"displayName": "Reassign Issue",
-				"modelDescription": "Reassign a GitHub issue to a different owner and optionally remove a label",
+				"modelDescription": "Reassign a GitHub issue to different owners and optionally remove a label",
 				"inputSchema": {
 					"type": "object",
 					"properties": {
@@ -215,16 +215,19 @@
 							"type": "string",
 							"description": "The owner of the issue to be replaced"
 						},
-						"new_owner": {
-							"type": "string",
-							"description": "The new owner of the issue"
+						"new_owners": {
+							"type": "array",
+							"items": {
+								"type": "string"
+							},
+							"description": "The new owners of the issue"
 						},
 						"remove_label": {
 							"type": "string",
 							"description": "An optional label to remove from the issue"
 						}
 					},
-					"required": ["owner", "repo", "issue_number", "new_owner"]
+					"required": ["owner", "repo", "issue_number", "new_owners"]
 				}
 			},
 			{

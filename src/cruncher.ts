@@ -10,18 +10,20 @@ const enableCheckResolution = false;
 const enableFindDuplicateIssue = false;
 const enableInfoNeededLabel = false;
 const enableTypeLabel = false;
+const doFetchNotifcations = false;
+const useSummarization = false;
 
 export function registerChatLibChatParticipant(context: vscode.ExtensionContext) {
     const handler: vscode.ChatRequestHandler = async (request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, cancellationToken: vscode.CancellationToken) => {
         if (request.command === 'next') {
-            if (!vscode.workspace.workspaceFolders?.[0]) {
-                stream.markdown('No workspace folder open for storing summaries.');
-                return;
-            }
+            // if (!vscode.workspace.workspaceFolders?.[0]) {
+            //     stream.markdown('No workspace folder open for storing summaries.');
+            //     return;
+            // }
 
             stream.progress('Fetching the next issue...');
             try {
-                for await (const { octokit, issue, notification, newCommentCreatedAt } of fetchIssues()) {
+                for await (const { octokit, issue, notification, newCommentCreatedAt } of (doFetchNotifcations ? fetchIssueNotifications : fetchIssues)()) {
                     const userResponse = await octokit.rest.users.getAuthenticated();
                     const currentUser = userResponse.data;
 
@@ -64,27 +66,27 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
                     }
 
                     const knownIssues: KnownIssue[] = [];
-                    const files = await vscode.workspace.findFiles('*.json', undefined, 100);
-                    for (const file of files) {
-                        const content = await vscode.workspace.fs.readFile(file);
-                        const parsed = JSON.parse(content.toString());
-                        if (parsed.summary && parsed.issue) {
-                            knownIssues.push(parsed);
-                        }
-                    }
+                    // const files = await vscode.workspace.findFiles('*.json', undefined, 100);
+                    // for (const file of files) {
+                    //     const content = await vscode.workspace.fs.readFile(file);
+                    //     const parsed = JSON.parse(content.toString());
+                    //     if (parsed.summary && parsed.issue) {
+                    //         knownIssues.push(parsed);
+                    //     }
+                    // }
 
                     const instructions = await loadTextFile(stream, path.join(context.extensionUri.fsPath, 'resources', 'instructions.md'));
-                    const summarizationInstructions = instructions ? await extractSummarizationInstructions(request, chatContext, stream, instructions, currentUser, cancellationToken) : undefined;
+                    const summarizationInstructions = instructions && useSummarization ? await extractSummarizationInstructions(request, chatContext, stream, instructions, currentUser, cancellationToken) : undefined;
 
                     const updateSummary = await summarizeUpdate(request, chatContext, stream, currentUser, issue, comments, newComments, cancellationToken);
                     const summary = await summarizeIssue(request, chatContext, stream, summarizationInstructions, currentUser, issue, comments, knownIssues, cancellationToken);
 
-                    if (issue.assignees?.find(a => a.login === currentUser.login)) {
+                    if (!doFetchNotifcations || issue.assignees?.find(a => a.login === currentUser.login)) {
                         let closed = enableCheckResolution && await checkResolution(request, chatContext, stream, issue, summary, cancellationToken);
                         closed ||= enableFindDuplicateIssue && await findDuplicateIssue(request, chatContext, stream, issue, summary, knownIssues, cancellationToken);
                         if (!closed) {
                             if (instructions) {
-                                await applyCustomInstructions(request, chatContext, stream, instructions, currentUser, issue, newComments, summary, updateSummary, cancellationToken);
+                                await applyCustomInstructions(request, chatContext, stream, instructions, currentUser, issue, comments, newComments, useSummarization ? summary : undefined, updateSummary, cancellationToken);
                             }
                             if (enableInfoNeededLabel) {
                                 await infoNeededLabelIssue(request, chatContext, stream, issue, summary, cancellationToken);
@@ -131,7 +133,7 @@ export function registerChatLibChatParticipant(context: vscode.ExtensionContext)
     context.subscriptions.push(chatLibParticipant);
 }
 
-async function* fetchIssues() {
+async function* fetchIssueNotifications() {
     const octokit = new Octokit({
         auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
     });
@@ -161,6 +163,22 @@ async function* fetchIssues() {
                 }
                 yield { octokit, issue, notification, newCommentCreatedAt };
             }
+        }
+    }
+}
+
+async function* fetchIssues() {
+    const octokit = new Octokit({
+        auth: (await vscode.authentication.getSession('github', ['repo'], { createIfNone: true })).accessToken
+    });
+    const iterator = octokit.paginate.iterator(octokit.rest.search.issuesAndPullRequests, {
+        q: 'repo:microsoft/vscode-copilot-release is:issue is:open no:assignee -label:feature-request -label:info-needed',
+        sort: 'created',
+        order: 'desc',
+    });
+    for await (const res of iterator) {
+        for (const issue of res.data) {
+            yield { octokit, issue, notification: undefined, newCommentCreatedAt: undefined };
         }
     }
 }
@@ -199,13 +217,13 @@ async function summarizeIssue(request: vscode.ChatRequest, chatContext: vscode.C
     const { text: summary } = await readResponse(response, stream);
     stream.markdown('\n\n');
 
-    const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (workspaceFolder) {
-        const [owner, repo] = issue.repository_url.split('/').slice(-2);
-        const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `${owner}-${repo}-${issue.number}.json`);
-        const fileContent = JSON.stringify({ summary, issue, comments }, null, 2);
-        await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
-    }
+    // const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
+    // if (workspaceFolder) {
+    //     const [owner, repo] = issue.repository_url.split('/').slice(-2);
+    //     const filePath = vscode.Uri.joinPath(workspaceFolder.uri, `${owner}-${repo}-${issue.number}.json`);
+    //     const fileContent = JSON.stringify({ summary, issue, comments }, null, 2);
+    //     await vscode.workspace.fs.writeFile(filePath, Buffer.from(fileContent, 'utf8'));
+    // }
 
     return summary;
 }
@@ -342,7 +360,7 @@ async function findDuplicateIssue(request: vscode.ChatRequest, chatContext: vsco
     return false;
 }
 
-async function applyCustomInstructions(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, instructions: string, currentUser: CurrentUser, issue: SearchIssue, newComments: IssueComment[], summary: string, updateSummary: string | undefined, cancellationToken: vscode.CancellationToken) {
+async function applyCustomInstructions(request: vscode.ChatRequest, chatContext: vscode.ChatContext, stream: vscode.ChatResponseStream, instructions: string, currentUser: CurrentUser, issue: SearchIssue, newComments: IssueComment[], comments: IssueComment[], summary: string | undefined, updateSummary: string | undefined, cancellationToken: vscode.CancellationToken) {
     stream.markdown(`## Applying Custom Instructions\n\n`);
 
     const tools = vscode.lm.tools.filter(tool => [
@@ -363,6 +381,7 @@ async function applyCustomInstructions(request: vscode.ChatRequest, chatContext:
             instructions,
             issue,
             newComments,
+            comments,
             summary,
             updateSummary,
             context: chatContext,
@@ -433,10 +452,10 @@ async function extractSummarizationInstructions(request: vscode.ChatRequest, cha
 
 async function loadTextFile(stream: vscode.ChatResponseStream, filename: string) {
     const workspaceFolder = vscode.workspace.workspaceFolders?.[0];
-    if (!workspaceFolder) {
+    if (!path.isAbsolute(filename) && !workspaceFolder) {
         return undefined;
     }
-    const fileUri = path.isAbsolute(filename) ? vscode.Uri.file(filename) : vscode.Uri.joinPath(workspaceFolder.uri, filename);
+    const fileUri = path.isAbsolute(filename) ? vscode.Uri.file(filename) : vscode.Uri.joinPath(workspaceFolder!.uri, filename);
     try {
         return (await vscode.workspace.fs.readFile(fileUri)).toString();
     } catch (error) {

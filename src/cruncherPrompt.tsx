@@ -191,8 +191,9 @@ export interface CustomInstructionsProps extends BasePromptElementProps {
 	currentUser: CurrentUser;
 	instructions: string;
 	issue: SearchIssue;
+	comments: IssueComment[];
 	newComments: IssueComment[];
-	summary: string;
+	summary?: string;
 	updateSummary: string | undefined;
 	request: vscode.ChatRequest;
 	context: vscode.ChatContext;
@@ -238,9 +239,7 @@ export class CustomInstructionsPrompt extends PromptElement<CustomInstructionsPr
 					</>
 				)}
 				<br />
-				## Issue Summary<br />
-				<br />
-				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
+				<IssueContentOrSummary issue={this.props.issue} summary={this.props.summary} comments={this.props.comments} />
 				{`</issue>`}<br />
 			</UserMessage>
 		);
@@ -362,5 +361,36 @@ class ToolsReminder extends PromptElement {
 			Never use multi_tool_use.parallel or any tool that does not exist. Use tools using the proper procedure, DO NOT write out a json codeblock with the tool inputs.<br />
 			Never say the name of a tool to a user.<br />
 		</>);
+	}
+}
+
+export interface IssueContentOrSummaryProps extends BasePromptElementProps {
+	issue: SearchIssue;
+	comments: IssueComment[];
+	summary?: string;
+}
+
+export class IssueContentOrSummary extends PromptElement<IssueContentOrSummaryProps, void> {
+	render(_state: void, _sizing: PromptSizing) {
+		return this.props.summary ? (
+			<>
+				## Issue {this.props.issue.repository_url.split('/').slice(-2).join('/')}#{this.props.issue.number} Summary<br />
+				<br />
+				{this.props.summary.replace(/(^|\n)#/g, '$1###')}<br />
+			</>
+		) : (
+			<>
+				{this.props.issue.body?.replace(/(^|\n)#/g, '$1###')}<br />
+				<br />
+				{this.props.comments.map(comment => (
+					<>
+						### Comment by @{comment.user?.login}{teamAssociations.includes(comment.author_association) ? <> (project member)</> : <> (community member)</>}<br />
+						<br />
+						{comment.body?.replace(/(^|\n)#/g, '$1####')}<br />
+						<br />
+					</>
+				))}
+			</>
+		);
 	}
 }
